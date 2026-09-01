@@ -305,6 +305,14 @@ function renderLive(matchId) {
       ${attackerCards || '<p class="muted">Geen aanvallers</p>'}
     </div>
 
+    <div class="section section-opponent">
+      <h3>Tegenstander</h3>
+      <div class="opponent-row">
+        <button class="btn" data-action="opponent-miss">Kans gemist</button>
+        <button class="btn btn-danger" data-action="opponent-goal">Goal tegenstander</button>
+      </div>
+    </div>
+
     <div class="section section-defense">
       <h3>Verdediging</h3>
       ${defenderCards || '<p class="muted">Geen verdedigers</p>'}
@@ -314,14 +322,6 @@ function renderLive(matchId) {
       <h3>Bank</h3>
       <div class="bench-list">${benchPills || '<span class="muted">Geen bankspelers</span>'}</div>
       <button class="btn btn-block mt-8" data-action="open-sub-modal" ${subDisabled}>Wissel speler</button>
-    </div>
-
-    <div class="section section-opponent">
-      <h3>Tegenstander</h3>
-      <div class="opponent-row">
-        <button class="btn" data-action="opponent-miss">Kans gemist</button>
-        <button class="btn btn-danger" data-action="opponent-goal">Goal tegenstander</button>
-      </div>
     </div>
 
     <div class="btn-row">
