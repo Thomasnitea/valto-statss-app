@@ -601,3 +601,9 @@ const app = document.getElementById('app');
 app.addEventListener('click', onClick);
 app.addEventListener('submit', onSubmit);
 render();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch((e) => console.error('Service worker registratie mislukt', e));
+  });
+}
