@@ -132,12 +132,15 @@ function renderHome() {
         ? '<span class="badge badge-finished">Afgerond</span>'
         : '<span class="badge">Opstelling</span>';
     return `
-      <div class="match-row" data-action="open-match" data-id="${m.id}">
-        <div>
-          <div><strong>${escapeHtml(m.opponent || 'Onbekende tegenstander')}</strong></div>
-          <div class="meta">${formatDate(m.date)}${scoreText ? ' · ' + scoreText : ''}</div>
+      <div class="match-row">
+        <div class="match-row-main" data-action="open-match" data-id="${m.id}">
+          <div>
+            <div><strong>${escapeHtml(m.opponent || 'Onbekende tegenstander')}</strong></div>
+            <div class="meta">${formatDate(m.date)}${scoreText ? ' · ' + scoreText : ''}</div>
+          </div>
+          ${badge}
         </div>
-        ${badge}
+        <button class="btn btn-sm btn-danger" data-action="delete-match" data-id="${m.id}" title="Wedstrijd verwijderen">Verwijder</button>
       </div>`;
   }).join('');
 
@@ -365,6 +368,18 @@ function renderSubModal(st) {
     </div>`;
 }
 
+function computeSubstitutionInfo(events) {
+  const info = {};
+  events.forEach((ev) => {
+    if (ev.type !== 'substitution') return;
+    info[ev.playerIn] = info[ev.playerIn] || { in: false, out: false };
+    info[ev.playerIn].in = true;
+    info[ev.playerOut] = info[ev.playerOut] || { in: false, out: false };
+    info[ev.playerOut].out = true;
+  });
+  return info;
+}
+
 function renderSummary(matchId) {
   const m = data.matches.find((x) => x.id === matchId);
   if (!m) return renderHome();
@@ -372,15 +387,22 @@ function renderSummary(matchId) {
   const st = computeMatchState(m.squad, m.initialLineup, m.events);
   const rows = buildStatsRows(m.squad, st.stats, getPlayerName)
     .sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
+  const subInfo = computeSubstitutionInfo(m.events);
 
-  const tableRows = rows.map((r) => `
+  const tableRows = rows.map((r) => {
+    const s = subInfo[r.id];
+    const badges = s
+      ? `${s.in ? '<span class="sub-badge sub-in" title="Ingevallen tijdens de wedstrijd">↑ In</span>' : ''}${s.out ? '<span class="sub-badge sub-out" title="Gewisseld tijdens de wedstrijd">↓ Uit</span>' : ''}`
+      : '';
+    return `
     <tr>
-      <td>${escapeHtml(r.name)}</td>
+      <td>${escapeHtml(r.name)}${badges}</td>
       <td>${r.goals}</td>
       <td>${r.misses}</td>
       <td>${r.total}</td>
       <td>${r.pct}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   return `
     <div class="topbar">
@@ -415,6 +437,16 @@ function openMatch(id) {
   if (m.status === 'setup') route = { name: 'setup', matchId: id };
   else if (m.status === 'live') route = { name: 'live', matchId: id };
   else route = { name: 'summary', matchId: id };
+  render();
+}
+
+function deleteMatch(id) {
+  const m = data.matches.find((x) => x.id === id);
+  if (!m) return;
+  const label = m.opponent ? `tegen ${m.opponent}` : 'zonder tegenstander';
+  if (!confirm(`Wedstrijd van ${formatDate(m.date)} ${label} verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return;
+  data.matches = data.matches.filter((x) => x.id !== id);
+  saveData();
   render();
 }
 
@@ -529,6 +561,7 @@ function onClick(e) {
     case 'go-home': route = { name: 'home' }; render(); break;
     case 'go-players': route = { name: 'players' }; render(); break;
     case 'open-match': openMatch(id); break;
+    case 'delete-match': deleteMatch(id); break;
     case 'delete-player': deletePlayer(id); break;
     case 'toggle-squad': {
       const m = currentMatch();

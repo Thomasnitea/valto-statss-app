@@ -17,6 +17,7 @@ function buildStatsRows(squadIds, playerStats, getPlayerName) {
     const s = playerStats[id] || { goals: 0, misses: 0 };
     const total = s.goals + s.misses;
     return {
+      id,
       name: getPlayerName(id),
       goals: s.goals,
       misses: s.misses,

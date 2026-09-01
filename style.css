@@ -90,13 +90,20 @@ h3 { font-size: 1rem; margin: 0 0 8px; color: var(--muted); text-transform: uppe
 
 .match-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
   padding: 12px 4px;
   border-bottom: 1px solid var(--border);
-  cursor: pointer;
 }
 .match-row:last-child { border-bottom: none; }
+.match-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
 .match-row .meta { color: var(--muted); font-size: 0.85rem; }
 
 .badge {
@@ -244,6 +251,19 @@ table.stats th, table.stats td {
   border-bottom: 1px solid var(--border);
 }
 table.stats th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
+
+.sub-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-left: 4px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.sub-in { background: #d7ecd9; color: var(--primary-dark); }
+.sub-out { background: #fdeceb; color: var(--danger); }
 
 .empty-state { color: var(--muted); text-align: center; padding: 24px 8px; }
 
