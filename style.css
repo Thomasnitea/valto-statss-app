@@ -110,6 +110,7 @@ h3 { font-size: 0.85rem; margin: 0 0 10px; color: var(--muted); text-transform: 
 .btn-primary:disabled { background: #a9bdb9; border-color: #a9bdb9; box-shadow: none; cursor: not-allowed; }
 .btn-primary:disabled.is-pressed { transform: none; filter: none; }
 .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
+.btn-miss { background: var(--warning); border-color: var(--warning); color: #fff; font-weight: 700; box-shadow: 0 4px 12px rgba(181, 134, 11, 0.35); }
 .btn-block { display: flex; width: 100%; }
 .btn-sm { min-height: 38px; padding: 6px 10px; font-size: 0.85rem; }
 

@@ -309,7 +309,7 @@ function renderLive(matchId) {
         </div>
       </div>
       <div class="actions">
-        <button class="btn" data-action="miss" data-id="${id}">Kans gemist</button>
+        <button class="btn btn-miss" data-action="miss" data-id="${id}">Kans gemist</button>
         <button class="btn btn-primary" data-action="goal" data-id="${id}">Doelpunt</button>
       </div>
     </div>`).join('');
@@ -354,7 +354,7 @@ function renderLive(matchId) {
         <h3>Tegenstander</h3>
         <div class="stat-line opponent-stat">${st.score.opponent}/${st.score.opponent + st.opponentMisses} kansen · <span class="stat-pct">${formatPct(st.score.opponent, st.opponentMisses)}</span></div>
         <div class="opponent-row">
-          <button class="btn" data-action="opponent-miss">Kans gemist</button>
+          <button class="btn btn-miss" data-action="opponent-miss">Kans gemist</button>
           <button class="btn btn-danger" data-action="opponent-goal">Goal tegenstander</button>
         </div>
       </div>
