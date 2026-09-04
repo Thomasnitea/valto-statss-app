@@ -1,21 +1,28 @@
 :root {
-  --bg: #eef1ef;
+  /* Forest Ritual palet */
+  --forest-950: #172726;
+  --forest-800: #243f3d;
+  --forest-500: #476664;
+  --mint-100: #d3e2de;
+  --coral: #f95831;
+
+  --bg: #eaf0ee;
   --card: #ffffff;
-  --text: #14181a;
-  --muted: #667169;
-  --border: #e1e6e2;
-  --primary: #0e8a4d;
-  --primary-dark: #0b5c34;
-  --primary-light: #e3f6ec;
-  --accent: #ff8a3d;
-  --attack: #e6f7ee;
-  --attack-border: #a9e2c3;
-  --defense: #e8f0fb;
-  --defense-border: #b7d3f5;
-  --bench: #eef0ef;
-  --opponent: #fdeeed;
-  --opponent-border: #f3bcb5;
-  --danger: #d1372b;
+  --text: var(--forest-950);
+  --muted: var(--forest-500);
+  --border: #dbe6e2;
+  --primary: var(--forest-800);
+  --primary-dark: var(--forest-950);
+  --primary-light: #dcece8;
+  --accent: var(--coral);
+  --attack: #e3ede9;
+  --attack-border: #a9c4bf;
+  --defense: var(--mint-100);
+  --defense-border: #a9c4bf;
+  --bench: #eef1ef;
+  --opponent: #fde7e0;
+  --opponent-border: #f6b79e;
+  --danger: var(--coral);
   --warning: #b5860b;
   --shadow: 0 1px 2px rgba(15, 25, 20, 0.06), 0 6px 18px rgba(15, 25, 20, 0.07);
 }
@@ -88,8 +95,8 @@ h3 { font-size: 0.85rem; margin: 0 0 10px; color: var(--muted); text-transform: 
 }
 .btn:active { transform: scale(0.97); }
 
-.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; box-shadow: 0 4px 12px rgba(14, 138, 77, 0.28); }
-.btn-primary:disabled { background: #9fc2ab; border-color: #9fc2ab; box-shadow: none; cursor: not-allowed; }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; box-shadow: 0 4px 12px rgba(36, 63, 61, 0.32); }
+.btn-primary:disabled { background: #a9bdb9; border-color: #a9bdb9; box-shadow: none; cursor: not-allowed; }
 .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
 .btn-block { display: flex; width: 100%; }
 .btn-sm { min-height: 38px; padding: 6px 10px; font-size: 0.85rem; }
@@ -251,11 +258,11 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  background: linear-gradient(135deg, var(--forest-950), var(--forest-500));
   border-radius: 18px;
   padding: 18px 16px 14px;
   margin-bottom: 14px;
-  box-shadow: 0 8px 24px rgba(11, 92, 52, 0.28);
+  box-shadow: 0 8px 24px rgba(23, 39, 38, 0.35);
 }
 .score-main {
   display: flex;
