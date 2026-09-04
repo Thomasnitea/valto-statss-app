@@ -352,6 +352,7 @@ function renderLive(matchId) {
 
       <div class="section section-opponent">
         <h3>Tegenstander</h3>
+        <div class="stat-line opponent-stat">${st.score.opponent}/${st.score.opponent + st.opponentMisses} kansen · <span class="stat-pct">${formatPct(st.score.opponent, st.opponentMisses)}</span></div>
         <div class="opponent-row">
           <button class="btn" data-action="opponent-miss">Kans gemist</button>
           <button class="btn btn-danger" data-action="opponent-goal">Goal tegenstander</button>
@@ -679,6 +680,25 @@ function onSubmit(e) {
     render();
   }
 }
+
+// ---------------------------- Druk-feedback --------------------------------
+// CSS :active is onbetrouwbaar op tablets (o.a. iPad Safari toont het vaak niet
+// zonder een touch-listener) — daarom sturen we de "ingedrukt"-status via JS.
+
+const PRESSABLE_SELECTOR = '.btn, .role-chip';
+
+function onPressStart(e) {
+  const el = e.target.closest(PRESSABLE_SELECTOR);
+  if (el && !el.disabled) el.classList.add('is-pressed');
+}
+
+function clearPressed() {
+  document.querySelectorAll('.is-pressed').forEach((el) => el.classList.remove('is-pressed'));
+}
+
+document.addEventListener('pointerdown', onPressStart);
+document.addEventListener('pointerup', clearPressed);
+document.addEventListener('pointercancel', clearPressed);
 
 // ---------------------------- Swipe-to-delete ------------------------------
 

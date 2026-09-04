@@ -91,12 +91,19 @@ h3 { font-size: 0.85rem; margin: 0 0 10px; color: var(--muted); text-transform: 
   font-weight: 500;
   cursor: pointer;
   touch-action: manipulation;
-  transition: transform 0.1s ease, box-shadow 0.15s ease;
+  transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, filter 0.08s ease-out;
 }
-.btn:active { transform: scale(0.97); }
+.btn:active { transform: scale(0.96); }
+.btn.is-pressed {
+  transform: scale(0.94);
+  filter: brightness(0.9);
+  box-shadow: none;
+  transition: none;
+}
 
 .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; box-shadow: 0 4px 12px rgba(36, 63, 61, 0.32); }
 .btn-primary:disabled { background: #a9bdb9; border-color: #a9bdb9; box-shadow: none; cursor: not-allowed; }
+.btn-primary:disabled.is-pressed { transform: none; filter: none; }
 .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
 .btn-block { display: flex; width: 100%; }
 .btn-sm { min-height: 38px; padding: 6px 10px; font-size: 0.85rem; }
@@ -242,9 +249,10 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
   cursor: pointer;
   background: var(--bench);
   font-weight: 600;
-  transition: transform 0.1s ease;
+  transition: transform 0.08s ease-out, filter 0.08s ease-out;
 }
-.role-chip:active { transform: scale(0.98); }
+.role-chip:active { transform: scale(0.96); }
+.role-chip.is-pressed { transform: scale(0.94); filter: brightness(0.94); transition: none; }
 .role-chip.role-aanval { background: var(--attack); border-color: var(--attack-border); }
 .role-chip.role-verdediging { background: var(--defense); border-color: var(--defense-border); }
 .role-chip .tag { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; font-weight: 700; letter-spacing: .04em; }
@@ -308,12 +316,15 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
   box-shadow: 0 1px 3px rgba(15, 25, 20, 0.05);
 }
 .player-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.player-card .name { font-weight: 700; }
+.player-card .name { font-weight: 700; font-size: 1.05rem; }
 .player-card .actions { display: flex; gap: 8px; }
 .player-card .actions .btn { flex: 1; }
 
-.stat-line { font-size: 0.78rem; color: var(--muted); margin-top: 1px; }
-.stat-pct { font-weight: 700; color: var(--primary-dark); }
+.stat-line { font-size: 1rem; color: var(--muted); margin-top: 2px; }
+.stat-pct { font-size: 1.1rem; font-weight: 800; color: var(--primary-dark); }
+
+.opponent-stat { font-size: 1.05rem; margin: 0 0 10px; }
+.opponent-stat .stat-pct { color: #9c2f14; }
 
 .bench-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .bench-list .pill {
