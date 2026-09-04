@@ -1,5 +1,5 @@
 // Bump this version string whenever any cached file changes, so clients pick up the update.
-const CACHE_NAME = 'korfbal-app-v1';
+const CACHE_NAME = 'korfbal-app-v2';
 
 const ASSETS = [
   './',

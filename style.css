@@ -6,6 +6,11 @@
   --mint-100: #d3e2de;
   --coral: #f95831;
 
+  /* Keppel / Non Photo Blue / Light Blue — voor duidelijk onderscheid Aanval vs Verdediging */
+  --keppel: #3ab09e;
+  --non-photo-blue: #a4dded;
+  --light-blue: #add8e6;
+
   --bg: #eaf0ee;
   --card: #ffffff;
   --text: var(--forest-950);
@@ -15,10 +20,10 @@
   --primary-dark: var(--forest-950);
   --primary-light: #dcece8;
   --accent: var(--coral);
-  --attack: #e3ede9;
-  --attack-border: #a9c4bf;
-  --defense: var(--mint-100);
-  --defense-border: #a9c4bf;
+  --attack: #d6f0ea;
+  --attack-border: var(--keppel);
+  --defense: #cfeaf2;
+  --defense-border: #4fa9c4;
   --bench: #eef1ef;
   --opponent: #fde7e0;
   --opponent-border: #f6b79e;
@@ -253,8 +258,10 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
 }
 .role-chip:active { transform: scale(0.96); }
 .role-chip.is-pressed { transform: scale(0.94); filter: brightness(0.94); transition: none; }
-.role-chip.role-aanval { background: var(--attack); border-color: var(--attack-border); }
-.role-chip.role-verdediging { background: var(--defense); border-color: var(--defense-border); }
+.role-chip.role-aanval { background: var(--attack); border-color: var(--attack-border); border-width: 2px; }
+.role-chip.role-aanval .tag { color: #1d7a6c; }
+.role-chip.role-verdediging { background: var(--defense); border-color: var(--defense-border); border-width: 2px; }
+.role-chip.role-verdediging .tag { color: #2b7690; }
 .role-chip .tag { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; font-weight: 700; letter-spacing: .04em; }
 
 .counts-row { display: flex; gap: 14px; margin-bottom: 12px; font-size: 0.85rem; color: var(--muted); flex-wrap: wrap; }
@@ -302,10 +309,13 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
 }
 
 .section { border-radius: 14px; padding: 12px; margin-bottom: 12px; border: 1px solid var(--border); }
-.section-attack { background: var(--attack); border-color: var(--attack-border); }
-.section-defense { background: var(--defense); border-color: var(--defense-border); }
+.section-attack { background: var(--attack); border-color: var(--attack-border); border-width: 2px; }
+.section-attack h3 { color: #1d7a6c; }
+.section-defense { background: var(--defense); border-color: var(--defense-border); border-width: 2px; }
+.section-defense h3 { color: #2b7690; }
 .section-bench { background: var(--bench); }
 .section-opponent { background: var(--opponent); border-color: var(--opponent-border); }
+.section-opponent h3 { color: #9c2f14; }
 .live-grid .section { margin-bottom: 0; }
 
 .player-card {
