@@ -1,5 +1,10 @@
 const STORAGE_KEY = 'korfbal-app-data';
 
+const ICONS = {
+  trash: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>',
+  swap: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px;margin-right:6px;"><path d="M7 3v12"></path><path d="M3 11l4 4 4-4"></path><path d="M17 21V9"></path><path d="M21 13l-4-4-4 4"></path></svg>',
+};
+
 let data = loadData();
 let route = { name: 'home' };
 let subModalOpen = false;
@@ -55,6 +60,19 @@ function formatDate(iso) {
   const d = new Date(iso + 'T00:00:00');
   if (isNaN(d.getTime())) return iso;
   return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function initials(name) {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function statLine(id, st) {
+  const s = st.stats[id] || { goals: 0, misses: 0 };
+  const total = s.goals + s.misses;
+  return `<div class="stat-line">${s.goals}/${total} kansen · <span class="stat-pct">${formatPct(s.goals, s.misses)}</span></div>`;
 }
 
 // ---- Wedstrijd-engine: state wordt volledig afgeleid uit het event-log ----
@@ -132,15 +150,19 @@ function renderHome() {
         ? '<span class="badge badge-finished">Afgerond</span>'
         : '<span class="badge">Opstelling</span>';
     return `
-      <div class="match-row">
-        <div class="match-row-main" data-action="open-match" data-id="${m.id}">
-          <div>
-            <div><strong>${escapeHtml(m.opponent || 'Onbekende tegenstander')}</strong></div>
+      <div class="swipe-wrap">
+        <div class="swipe-delete" data-action="delete-match" data-id="${m.id}">
+          ${ICONS.trash}<span>Verwijderen</span>
+        </div>
+        <div class="swipe-content">
+          <div class="match-card-tap" data-action="open-match" data-id="${m.id}">
+            <div class="match-card-top">
+              <strong>${escapeHtml(m.opponent || 'Onbekende tegenstander')}</strong>
+              ${badge}
+            </div>
             <div class="meta">${formatDate(m.date)}${scoreText ? ' · ' + scoreText : ''}</div>
           </div>
-          ${badge}
         </div>
-        <button class="btn btn-sm btn-danger" data-action="delete-match" data-id="${m.id}" title="Wedstrijd verwijderen">Verwijder</button>
       </div>`;
   }).join('');
 
@@ -165,8 +187,8 @@ function renderHome() {
       </form>
     </div>
 
-    <div class="card">
-      <h2>Wedstrijden</h2>
+    <h2 class="section-title">Wedstrijden</h2>
+    <div class="card-grid">
       ${rows || '<div class="empty-state">Nog geen wedstrijden toegevoegd.</div>'}
     </div>
   `;
@@ -174,9 +196,16 @@ function renderHome() {
 
 function renderPlayers() {
   const rows = data.players.map((p) => `
-    <div class="row">
-      <span>${escapeHtml(p.name)}</span>
-      <button class="btn btn-sm btn-danger" data-action="delete-player" data-id="${p.id}">Verwijder</button>
+    <div class="swipe-wrap">
+      <div class="swipe-delete" data-action="delete-player" data-id="${p.id}">
+        ${ICONS.trash}<span>Verwijderen</span>
+      </div>
+      <div class="swipe-content">
+        <div class="player-card-tap">
+          <span class="avatar">${escapeHtml(initials(p.name))}</span>
+          <span class="player-name">${escapeHtml(p.name)}</span>
+        </div>
+      </div>
     </div>`).join('');
 
   return `
@@ -192,11 +221,9 @@ function renderPlayers() {
         <button type="submit" class="btn btn-primary btn-block">Toevoegen</button>
       </form>
     </div>
-    <div class="card">
-      <h2>Spelerslijst</h2>
-      <div class="player-list">
-        ${rows || '<div class="empty-state">Nog geen spelers toegevoegd.</div>'}
-      </div>
+    <h2 class="section-title">Spelerslijst</h2>
+    <div class="card-grid">
+      ${rows || '<div class="empty-state">Nog geen spelers toegevoegd.</div>'}
     </div>
   `;
 }
@@ -240,7 +267,7 @@ function renderSetup(matchId) {
           <span>Verdediging: <strong>${defenders.length}/4</strong></span>
           <span>Bank: <strong>${squadCount - attackers.length - defenders.length}</strong></span>
         </div>
-        ${chips}
+        <div class="role-grid">${chips}</div>
         <button class="btn btn-primary btn-block mt-16" data-action="start-match" data-id="${m.id}" ${startEnabled ? '' : 'disabled'}>Start wedstrijd</button>
       </div>`;
   } else {
@@ -256,7 +283,7 @@ function renderSetup(matchId) {
     <div class="card">
       <h2>${escapeHtml(m.opponent || 'Onbekende tegenstander')} · ${formatDate(m.date)}</h2>
       <h3>Selecteer spelers (minimaal 8)</h3>
-      <div class="player-list">
+      <div class="checklist-grid">
         ${squadCheckboxes || '<div class="empty-state">Voeg eerst spelers toe via "Spelers beheren".</div>'}
       </div>
       <p class="muted mt-8">${squadCount} geselecteerd</p>
@@ -274,7 +301,13 @@ function renderLive(matchId) {
 
   const attackerCards = st.attackers.map((id) => `
     <div class="player-card">
-      <div class="name">${escapeHtml(getPlayerName(id))}</div>
+      <div class="player-card-head">
+        <span class="avatar avatar-sm">${escapeHtml(initials(getPlayerName(id)))}</span>
+        <div>
+          <div class="name">${escapeHtml(getPlayerName(id))}</div>
+          ${statLine(id, st)}
+        </div>
+      </div>
       <div class="actions">
         <button class="btn" data-action="miss" data-id="${id}">Kans gemist</button>
         <button class="btn btn-primary" data-action="goal" data-id="${id}">Doelpunt</button>
@@ -282,7 +315,15 @@ function renderLive(matchId) {
     </div>`).join('');
 
   const defenderCards = st.defenders.map((id) => `
-    <div class="player-card"><div class="name">${escapeHtml(getPlayerName(id))}</div></div>`).join('');
+    <div class="player-card">
+      <div class="player-card-head">
+        <span class="avatar avatar-sm">${escapeHtml(initials(getPlayerName(id)))}</span>
+        <div>
+          <div class="name">${escapeHtml(getPlayerName(id))}</div>
+          ${statLine(id, st)}
+        </div>
+      </div>
+    </div>`).join('');
 
   const benchPills = st.bench.map((id) => `<span class="pill">${escapeHtml(getPlayerName(id))}</span>`).join('');
 
@@ -303,28 +344,30 @@ function renderLive(matchId) {
       <div class="swap-progress">Nog ${untilSwap} doelpunt${untilSwap === 1 ? '' : 'en'} tot rolwissel</div>
     </div>
 
-    <div class="section section-attack">
-      <h3>Aanval</h3>
-      ${attackerCards || '<p class="muted">Geen aanvallers</p>'}
-    </div>
-
-    <div class="section section-opponent">
-      <h3>Tegenstander</h3>
-      <div class="opponent-row">
-        <button class="btn" data-action="opponent-miss">Kans gemist</button>
-        <button class="btn btn-danger" data-action="opponent-goal">Goal tegenstander</button>
+    <div class="live-grid">
+      <div class="section section-attack">
+        <h3>Aanval</h3>
+        ${attackerCards || '<p class="muted">Geen aanvallers</p>'}
       </div>
-    </div>
 
-    <div class="section section-defense">
-      <h3>Verdediging</h3>
-      ${defenderCards || '<p class="muted">Geen verdedigers</p>'}
+      <div class="section section-opponent">
+        <h3>Tegenstander</h3>
+        <div class="opponent-row">
+          <button class="btn" data-action="opponent-miss">Kans gemist</button>
+          <button class="btn btn-danger" data-action="opponent-goal">Goal tegenstander</button>
+        </div>
+      </div>
+
+      <div class="section section-defense">
+        <h3>Verdediging</h3>
+        ${defenderCards || '<p class="muted">Geen verdedigers</p>'}
+      </div>
     </div>
 
     <div class="section section-bench">
       <h3>Bank</h3>
       <div class="bench-list">${benchPills || '<span class="muted">Geen bankspelers</span>'}</div>
-      <button class="btn btn-block mt-8" data-action="open-sub-modal" ${subDisabled}>Wissel speler</button>
+      <button class="btn btn-block mt-8" data-action="open-sub-modal" ${subDisabled}>${ICONS.swap}Wissel speler</button>
     </div>
 
     <div class="btn-row">
@@ -552,6 +595,13 @@ function doExportMarkdown(matchId) {
 // ---------------------------- Event delegatie ------------------------------
 
 function onClick(e) {
+  const swipedWrap = e.target.closest('.swipe-wrap');
+  const onDeleteButton = !!e.target.closest('.swipe-delete');
+  if (swipedWrap && swipedWrap.dataset.suppressClick) {
+    delete swipedWrap.dataset.suppressClick;
+    if (!onDeleteButton) return;
+  }
+
   const el = e.target.closest('[data-action]');
   if (!el || el.disabled) return;
   const action = el.dataset.action;
@@ -629,6 +679,72 @@ function onSubmit(e) {
     render();
   }
 }
+
+// ---------------------------- Swipe-to-delete ------------------------------
+
+const SWIPE_OPEN_X = -84;
+const SWIPE_OPEN_THRESHOLD = -42;
+const SWIPE_MOVE_THRESHOLD = 6;
+
+let swipeDrag = null;
+let openSwipeWrap = null;
+
+function closeOpenSwipe() {
+  if (!openSwipeWrap) return;
+  const content = openSwipeWrap.querySelector('.swipe-content');
+  if (content) content.style.transform = '';
+  openSwipeWrap.classList.remove('swiped-open');
+  openSwipeWrap = null;
+}
+
+function onSwipePointerDown(e) {
+  if (e.target.closest('.swipe-delete')) return;
+
+  const wrap = e.target.closest('.swipe-wrap');
+  if (openSwipeWrap && openSwipeWrap !== wrap) closeOpenSwipe();
+  if (!wrap) return;
+
+  if (wrap.classList.contains('swiped-open')) {
+    closeOpenSwipe();
+    wrap.dataset.suppressClick = '1';
+    return;
+  }
+
+  const content = wrap.querySelector('.swipe-content');
+  if (!content) return;
+  swipeDrag = { wrap, content, startX: e.clientX, moved: false };
+}
+
+function onSwipePointerMove(e) {
+  if (!swipeDrag) return;
+  const dx = e.clientX - swipeDrag.startX;
+  if (Math.abs(dx) > SWIPE_MOVE_THRESHOLD) swipeDrag.moved = true;
+  const clamped = Math.max(SWIPE_OPEN_X, Math.min(0, dx));
+  swipeDrag.wrap.classList.add('swiping');
+  swipeDrag.content.style.transform = `translateX(${clamped}px)`;
+  swipeDrag.dx = clamped;
+}
+
+function onSwipePointerUp() {
+  if (!swipeDrag) return;
+  const { wrap, content, dx, moved } = swipeDrag;
+  wrap.classList.remove('swiping');
+  if (dx < SWIPE_OPEN_THRESHOLD) {
+    content.style.transform = `translateX(${SWIPE_OPEN_X}px)`;
+    wrap.classList.add('swiped-open');
+    openSwipeWrap = wrap;
+  } else {
+    content.style.transform = '';
+    wrap.classList.remove('swiped-open');
+  }
+  if (moved) wrap.dataset.suppressClick = '1';
+  swipeDrag = null;
+}
+
+document.addEventListener('pointerdown', onSwipePointerDown);
+document.addEventListener('pointermove', onSwipePointerMove);
+document.addEventListener('pointerup', onSwipePointerUp);
+document.addEventListener('pointercancel', onSwipePointerUp);
 
 const app = document.getElementById('app');
 app.addEventListener('click', onClick);
