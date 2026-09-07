@@ -297,6 +297,18 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
 
 .swap-progress { text-align: center; font-size: 0.85rem; color: var(--muted); margin-bottom: 2px; }
 
+.half-stats-row { display: flex; gap: 4px; margin: 6px 0 10px; }
+.half-cell { flex: 1; text-align: center; }
+.half-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; color: var(--muted); }
+.half-value { font-size: 0.95rem; font-weight: 700; }
+.half-pct { font-size: 0.95rem; font-weight: 800; color: var(--primary-dark); }
+
+.scoreboard .half-label { color: rgba(255, 255, 255, 0.7); }
+.scoreboard .half-value { color: #fff; }
+.scoreboard .half-pct { color: #fff; }
+
+.section-opponent .half-pct { color: #9c2f14; }
+
 /* ---------------------------- Live-scherm -------------------------------- */
 
 .live-grid { display: flex; flex-direction: column; }
@@ -333,9 +345,6 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
 
 .stat-line { font-size: 1rem; color: var(--muted); margin-top: 2px; }
 .stat-pct { font-size: 1.1rem; font-weight: 800; color: var(--primary-dark); }
-
-.opponent-stat { font-size: 1.05rem; margin: 0 0 10px; }
-.opponent-stat .stat-pct { color: #9c2f14; }
 
 .bench-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .bench-list .pill {

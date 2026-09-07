@@ -81,6 +81,7 @@ function computeMatchState(squad, initialLineup, events) {
   let defenders = [...initialLineup.defenders];
   let own = 0;
   let opponent = 0;
+  let ownMisses = 0;
   let opponentMisses = 0;
   let counter = 0;
   const stats = {};
@@ -95,6 +96,7 @@ function computeMatchState(squad, initialLineup, events) {
       counter++;
     } else if (ev.type === 'miss') {
       if (stats[ev.playerId]) stats[ev.playerId].misses++;
+      ownMisses++;
     } else if (ev.type === 'opponentGoal') {
       opponent++;
       counter++;
@@ -119,7 +121,49 @@ function computeMatchState(squad, initialLineup, events) {
   });
 
   const bench = squad.filter((id) => !attackers.includes(id) && !defenders.includes(id));
-  return { attackers, defenders, bench, score: { own, opponent }, opponentMisses, counter, stats, lastEventWasSwap };
+  return { attackers, defenders, bench, score: { own, opponent }, ownMisses, opponentMisses, counter, stats, lastEventWasSwap };
+}
+
+function findHalftimeIndex(events) {
+  return events.findIndex((ev) => ev.type === 'halftime');
+}
+
+// Splitst de wedstrijd in helft 1 / helft 2 / totaal voor eigen team en tegenstander.
+// Helft 2 wordt afgeleid als totaal - helft 1 (geen aparte opstelling-berekening nodig).
+function computeHalfSplit(squad, initialLineup, events) {
+  const htIndex = findHalftimeIndex(events);
+  const totalState = computeMatchState(squad, initialLineup, events);
+  const half1Events = htIndex === -1 ? events : events.slice(0, htIndex);
+  const half1State = computeMatchState(squad, initialLineup, half1Events);
+
+  const ownTotal = { goals: totalState.score.own, misses: totalState.ownMisses };
+  const ownHalf1 = { goals: half1State.score.own, misses: half1State.ownMisses };
+  const ownHalf2 = { goals: ownTotal.goals - ownHalf1.goals, misses: ownTotal.misses - ownHalf1.misses };
+
+  const oppTotal = { goals: totalState.score.opponent, misses: totalState.opponentMisses };
+  const oppHalf1 = { goals: half1State.score.opponent, misses: half1State.opponentMisses };
+  const oppHalf2 = { goals: oppTotal.goals - oppHalf1.goals, misses: oppTotal.misses - oppHalf1.misses };
+
+  return {
+    hasHalftime: htIndex !== -1,
+    own: { half1: ownHalf1, half2: ownHalf2, total: ownTotal },
+    opponent: { half1: oppHalf1, half2: oppHalf2, total: oppTotal },
+  };
+}
+
+function renderHalfStatsRow(split) {
+  const cell = (label, s) => `
+    <div class="half-cell">
+      <div class="half-label">${label}</div>
+      <div class="half-value">${s.goals}/${s.goals + s.misses}</div>
+      <div class="half-pct">${formatPct(s.goals, s.misses)}</div>
+    </div>`;
+  return `
+    <div class="half-stats-row">
+      ${cell('Helft 1', split.half1)}
+      ${cell('Helft 2', split.half2)}
+      ${cell('Totaal', split.total)}
+    </div>`;
 }
 
 // ---------------------------- Rendering ----------------------------------
@@ -298,6 +342,7 @@ function renderLive(matchId) {
 
   const st = computeMatchState(m.squad, m.initialLineup, m.events);
   const untilSwap = 2 - st.counter;
+  const split = computeHalfSplit(m.squad, m.initialLineup, m.events);
 
   const attackerCards = st.attackers.map((id) => `
     <div class="player-card">
@@ -329,6 +374,7 @@ function renderLive(matchId) {
 
   const undoDisabled = m.events.length === 0 ? 'disabled' : '';
   const subDisabled = st.bench.length === 0 ? 'disabled' : '';
+  const halftimeDisabled = split.hasHalftime ? 'disabled' : '';
 
   return `
     <div class="topbar">
@@ -341,6 +387,7 @@ function renderLive(matchId) {
       <div class="score-main">
         <span>${st.score.own}</span><span class="vs">${escapeHtml(m.opponent || 'Tegenstander')}</span><span>${st.score.opponent}</span>
       </div>
+      ${renderHalfStatsRow(split.own)}
       <div class="swap-progress">Nog ${untilSwap} doelpunt${untilSwap === 1 ? '' : 'en'} tot rolwissel</div>
     </div>
 
@@ -352,7 +399,7 @@ function renderLive(matchId) {
 
       <div class="section section-opponent">
         <h3>Tegenstander</h3>
-        <div class="stat-line opponent-stat">${st.score.opponent}/${st.score.opponent + st.opponentMisses} kansen · <span class="stat-pct">${formatPct(st.score.opponent, st.opponentMisses)}</span></div>
+        ${renderHalfStatsRow(split.opponent)}
         <div class="opponent-row">
           <button class="btn btn-miss" data-action="opponent-miss">Kans gemist</button>
           <button class="btn btn-danger" data-action="opponent-goal">Goal tegenstander</button>
@@ -373,6 +420,7 @@ function renderLive(matchId) {
 
     <div class="btn-row">
       <button class="btn" data-action="undo" ${undoDisabled}>Ongedaan maken</button>
+      <button class="btn" data-action="halftime" ${halftimeDisabled}>Rust</button>
       <button class="btn btn-danger btn-block" data-action="finish-match" data-id="${m.id}">Wedstrijd beëindigen</button>
     </div>
 
@@ -546,6 +594,7 @@ function registerEvent(partial) {
   saveData();
   const st = computeMatchState(m.squad, m.initialLineup, m.events);
   if (st.lastEventWasSwap) showToast('Gewisseld! Aanval en verdediging wisselen van rol.');
+  if (partial.type === 'halftime') showToast('Rust! Tweede helft begint.');
   render();
 }
 
@@ -629,6 +678,7 @@ function onClick(e) {
     case 'miss': registerEvent({ type: 'miss', playerId: id }); break;
     case 'opponent-goal': registerEvent({ type: 'opponentGoal' }); break;
     case 'opponent-miss': registerEvent({ type: 'opponentMiss' }); break;
+    case 'halftime': registerEvent({ type: 'halftime' }); break;
     case 'undo': undoLastEvent(); break;
     case 'open-sub-modal': subModalOpen = true; render(); break;
     case 'close-sub-modal': subModalOpen = false; render(); break;
