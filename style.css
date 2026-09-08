@@ -94,12 +94,34 @@
   --bench: #f8f2ea;
   --opponent: #fbe7ca;
   --opponent-border: #f4a068;
-  --opponent-text: #9a5518;
+  --opponent-text: #c43670;
   --danger: #f4a068;
   --warning: #b5860b;
   --miss: #e0709e;
   --miss-rgb: 224, 112, 158;
   --shadow: 0 1px 2px rgba(125, 35, 80, 0.06), 0 6px 18px rgba(125, 35, 80, 0.08);
+}
+
+/* Roze thema — sectie-specifieke aankleding op het live-scherm (geen randen, eigen elementkleuren) */
+[data-theme="pink"] .section-attack {
+  background: #fbd9e5; /* Cherry Blossom */
+  border: none;
+}
+[data-theme="pink"] .section-attack .player-card {
+  background: #fbf4eb; /* Champagne */
+}
+[data-theme="pink"] .section-defense {
+  background: #c43670; /* Raspberry Rose */
+  border: none;
+}
+[data-theme="pink"] .section-defense h3 {
+  color: #fbf4eb; /* Champagne, leesbaar op de donkere achtergrond */
+}
+[data-theme="pink"] .section-defense .player-card {
+  background: #fbd9e5; /* Blush */
+}
+[data-theme="pink"] .section-opponent {
+  border: none;
 }
 
 * { box-sizing: border-box; }
