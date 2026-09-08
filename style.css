@@ -71,35 +71,35 @@
   --shadow: 0 1px 2px rgba(26, 26, 26, 0.06), 0 6px 18px rgba(26, 26, 26, 0.08);
 }
 
-/* Roze/paars thema */
+/* Roze thema — Tickle Me Pink / Champagne / Blush / Raspberry Rose / Sunset */
 [data-theme="pink"] {
-  --bg: #fdf2f8;
+  --bg: #fbf4eb;
   --card: #ffffff;
-  --text: #3b0a2a;
-  --muted: #8a5a78;
-  --border: #f3d9ea;
-  --primary: #8b2f8f;
-  --primary-rgb: 139, 47, 143;
-  --primary-dark: #5b1a63;
-  --primary-dark-rgb: 91, 26, 99;
-  --primary-light: #f6d9ef;
-  --disabled-bg: #d9b9d4;
-  --accent: #8b2f8f;
-  --attack: #fbe4f2;
-  --attack-border: #d6469b;
-  --attack-text: #9c1f6e;
-  --defense: #ede4fb;
-  --defense-border: #7c3aed;
-  --defense-text: #5b21b6;
-  --bench: #f6eef5;
-  --opponent: #e1f7ea;
+  --text: #4a1030;
+  --muted: #a15a7c;
+  --border: #f5e0e8;
+  --primary: #c43670;
+  --primary-rgb: 196, 54, 112;
+  --primary-dark: #7d2350;
+  --primary-dark-rgb: 125, 35, 80;
+  --primary-light: #fbd9e5;
+  --disabled-bg: #e3c3d1;
+  --accent: #c43670;
+  --attack: #fbd9e5;
+  --attack-border: #f283af;
+  --attack-text: #9c2a5a;
+  --defense: #fbe8cf;
+  --defense-border: #f3cc97;
+  --defense-text: #8a5a1f;
+  --bench: #f8f2ea;
+  --opponent: #e3f7ec;
   --opponent-border: #1f9d63;
   --opponent-text: #146b44;
   --danger: #1f9d63;
   --warning: #b5860b;
-  --miss: #c26bb0;
-  --miss-rgb: 194, 107, 176;
-  --shadow: 0 1px 2px rgba(91, 26, 99, 0.06), 0 6px 18px rgba(91, 26, 99, 0.08);
+  --miss: #e0709e;
+  --miss-rgb: 224, 112, 158;
+  --shadow: 0 1px 2px rgba(125, 35, 80, 0.06), 0 6px 18px rgba(125, 35, 80, 0.08);
 }
 
 * { box-sizing: border-box; }
