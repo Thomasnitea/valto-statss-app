@@ -17,19 +17,89 @@
   --muted: var(--forest-500);
   --border: #dbe6e2;
   --primary: var(--forest-800);
+  --primary-rgb: 36, 63, 61;
   --primary-dark: var(--forest-950);
+  --primary-dark-rgb: 23, 39, 38;
   --primary-light: #dcece8;
+  --disabled-bg: #a9bdb9;
   --accent: var(--coral);
   --attack: #d6f0ea;
   --attack-border: var(--keppel);
+  --attack-text: #1d7a6c;
   --defense: #cfeaf2;
   --defense-border: #4fa9c4;
+  --defense-text: #2b7690;
   --bench: #eef1ef;
   --opponent: #fde7e0;
   --opponent-border: #f6b79e;
+  --opponent-text: #9c2f14;
   --danger: var(--coral);
   --warning: #b5860b;
+  --miss: #4fa9c4;
+  --miss-rgb: 79, 169, 196;
   --shadow: 0 1px 2px rgba(15, 25, 20, 0.06), 0 6px 18px rgba(15, 25, 20, 0.07);
+}
+
+/* CKV Valto — oranje wedstrijdshirt, zwart broekje/sokken (ckv-valto.nl) */
+[data-theme="ckv-valto"] {
+  --bg: #fdf6ee;
+  --card: #ffffff;
+  --text: #1a1a1a;
+  --muted: #6b6560;
+  --border: #ece0d2;
+  --primary: #f2650a;
+  --primary-rgb: 242, 101, 10;
+  --primary-dark: #1a1a1a;
+  --primary-dark-rgb: 26, 26, 26;
+  --primary-light: #ffe4cc;
+  --disabled-bg: #d9c9b8;
+  --accent: #f2650a;
+  --attack: #fdeadb;
+  --attack-border: #f2650a;
+  --attack-text: #b34d06;
+  --defense: #e9e9e7;
+  --defense-border: #3a3a3a;
+  --defense-text: #3a3a3a;
+  --bench: #f3efe9;
+  --opponent: #e4ecfb;
+  --opponent-border: #7fa1e8;
+  --opponent-text: #1d3f91;
+  --danger: #2856c7;
+  --warning: #b5860b;
+  --miss: #5f6467;
+  --miss-rgb: 95, 100, 103;
+  --shadow: 0 1px 2px rgba(26, 26, 26, 0.06), 0 6px 18px rgba(26, 26, 26, 0.08);
+}
+
+/* Roze/paars thema */
+[data-theme="pink"] {
+  --bg: #fdf2f8;
+  --card: #ffffff;
+  --text: #3b0a2a;
+  --muted: #8a5a78;
+  --border: #f3d9ea;
+  --primary: #8b2f8f;
+  --primary-rgb: 139, 47, 143;
+  --primary-dark: #5b1a63;
+  --primary-dark-rgb: 91, 26, 99;
+  --primary-light: #f6d9ef;
+  --disabled-bg: #d9b9d4;
+  --accent: #8b2f8f;
+  --attack: #fbe4f2;
+  --attack-border: #d6469b;
+  --attack-text: #9c1f6e;
+  --defense: #ede4fb;
+  --defense-border: #7c3aed;
+  --defense-text: #5b21b6;
+  --bench: #f6eef5;
+  --opponent: #e1f7ea;
+  --opponent-border: #1f9d63;
+  --opponent-text: #146b44;
+  --danger: #1f9d63;
+  --warning: #b5860b;
+  --miss: #c26bb0;
+  --miss-rgb: 194, 107, 176;
+  --shadow: 0 1px 2px rgba(91, 26, 99, 0.06), 0 6px 18px rgba(91, 26, 99, 0.08);
 }
 
 * { box-sizing: border-box; }
@@ -106,11 +176,11 @@ h3 { font-size: 0.85rem; margin: 0 0 10px; color: var(--muted); text-transform: 
   transition: none;
 }
 
-.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; box-shadow: 0 4px 12px rgba(36, 63, 61, 0.32); }
-.btn-primary:disabled { background: #a9bdb9; border-color: #a9bdb9; box-shadow: none; cursor: not-allowed; }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.32); }
+.btn-primary:disabled { background: var(--disabled-bg); border-color: var(--disabled-bg); box-shadow: none; cursor: not-allowed; }
 .btn-primary:disabled.is-pressed { transform: none; filter: none; }
 .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
-.btn-miss { background: var(--defense-border); border-color: var(--defense-border); color: #fff; font-weight: 700; box-shadow: 0 4px 12px rgba(79, 169, 196, 0.35); }
+.btn-miss { background: var(--miss); border-color: var(--miss); color: #fff; font-weight: 700; box-shadow: 0 4px 12px rgba(var(--miss-rgb), 0.35); }
 .btn-block { display: flex; width: 100%; }
 .btn-sm { min-height: 38px; padding: 6px 10px; font-size: 0.85rem; }
 
@@ -203,6 +273,29 @@ h3 { font-size: 0.85rem; margin: 0 0 10px; color: var(--muted); text-transform: 
 .badge-live { background: #ffe1c2; color: #8a4a00; }
 .badge-finished { background: var(--primary-light); color: var(--primary-dark); }
 
+.theme-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.theme-swatch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 8px 8px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  transition: transform 0.08s ease-out, filter 0.08s ease-out, border-color 0.15s ease;
+}
+.theme-swatch:active { transform: scale(0.97); }
+.theme-swatch.is-pressed { transform: scale(0.95); filter: brightness(0.96); transition: none; }
+.theme-swatch.active { border-color: var(--primary); }
+.theme-dots { display: flex; }
+.theme-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12); margin-left: -8px; }
+.theme-dot:first-child { margin-left: 0; }
+.theme-check { color: var(--primary); font-weight: 800; }
+
 form.inline { display: flex; flex-direction: column; gap: 10px; }
 label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 4px; }
 input[type=text], input[type=date], select {
@@ -260,9 +353,9 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
 .role-chip:active { transform: scale(0.96); }
 .role-chip.is-pressed { transform: scale(0.94); filter: brightness(0.94); transition: none; }
 .role-chip.role-aanval { background: var(--attack); border-color: var(--attack-border); border-width: 2px; }
-.role-chip.role-aanval .tag { color: #1d7a6c; }
+.role-chip.role-aanval .tag { color: var(--attack-text); }
 .role-chip.role-verdediging { background: var(--defense); border-color: var(--defense-border); border-width: 2px; }
-.role-chip.role-verdediging .tag { color: #2b7690; }
+.role-chip.role-verdediging .tag { color: var(--defense-text); }
 .role-chip .tag { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; font-weight: 700; letter-spacing: .04em; }
 
 .counts-row { display: flex; gap: 14px; margin-bottom: 12px; font-size: 0.85rem; color: var(--muted); flex-wrap: wrap; }
@@ -274,11 +367,11 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: linear-gradient(135deg, var(--forest-950), var(--forest-500));
+  background: linear-gradient(135deg, var(--primary-dark), var(--muted));
   border-radius: 18px;
   padding: 18px 16px 14px;
   margin-bottom: 14px;
-  box-shadow: 0 8px 24px rgba(23, 39, 38, 0.35);
+  box-shadow: 0 8px 24px rgba(var(--primary-dark-rgb), 0.35);
 }
 .score-main {
   display: flex;
@@ -307,7 +400,7 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
 .scoreboard .half-value { color: #fff; }
 .scoreboard .half-pct { color: #fff; }
 
-.section-opponent .half-pct { color: #9c2f14; }
+.section-opponent .half-pct { color: var(--opponent-text); }
 
 /* ---------------------------- Live-scherm -------------------------------- */
 
@@ -323,12 +416,12 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
 
 .section { border-radius: 14px; padding: 12px; margin-bottom: 12px; border: 1px solid var(--border); }
 .section-attack { background: var(--attack); border-color: var(--attack-border); border-width: 2px; }
-.section-attack h3 { color: #1d7a6c; }
+.section-attack h3 { color: var(--attack-text); }
 .section-defense { background: var(--defense); border-color: var(--defense-border); border-width: 2px; }
-.section-defense h3 { color: #2b7690; }
+.section-defense h3 { color: var(--defense-text); }
 .section-bench { background: var(--bench); }
 .section-opponent { background: var(--opponent); border-color: var(--opponent-border); }
-.section-opponent h3 { color: #9c2f14; }
+.section-opponent h3 { color: var(--opponent-text); }
 .live-grid .section { margin-bottom: 0; }
 
 .player-card {

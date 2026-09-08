@@ -8,6 +8,14 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" href="icons/icon-192.png">
+<script>
+  try {
+    var savedTheme = localStorage.getItem('korfbal-app-theme');
+    if (savedTheme && savedTheme !== 'default') {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    }
+  } catch (e) {}
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>

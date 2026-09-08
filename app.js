@@ -1,4 +1,11 @@
 const STORAGE_KEY = 'korfbal-app-data';
+const THEME_KEY = 'korfbal-app-theme';
+
+const THEMES = [
+  { id: 'default', label: 'Standaard', dots: ['#243f3d', '#3ab09e', '#f95831'] },
+  { id: 'ckv-valto', label: 'CKV Valto', dots: ['#1a1a1a', '#f2650a', '#2856c7'] },
+  { id: 'pink', label: 'Roze', dots: ['#8b2f8f', '#d6469b', '#1f9d63'] },
+];
 
 const ICONS = {
   trash: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>',
@@ -23,6 +30,27 @@ function loadData() {
 
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function getTheme() {
+  try {
+    return localStorage.getItem(THEME_KEY) || 'default';
+  } catch (e) {
+    return 'default';
+  }
+}
+
+function setTheme(id) {
+  try {
+    localStorage.setItem(THEME_KEY, id);
+  } catch (e) {
+    console.error('Kon thema niet opslaan', e);
+  }
+  if (id === 'default') {
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', id);
+  }
 }
 
 function uid() {
@@ -210,10 +238,23 @@ function renderHome() {
       </div>`;
   }).join('');
 
+  const currentTheme = getTheme();
+  const themeButtons = THEMES.map((t) => `
+    <button type="button" class="theme-swatch ${t.id === currentTheme ? 'active' : ''}" data-action="set-theme" data-id="${t.id}">
+      <span class="theme-dots">${t.dots.map((c) => `<span class="theme-dot" style="background:${c}"></span>`).join('')}</span>
+      <span>${escapeHtml(t.label)}</span>
+      ${t.id === currentTheme ? '<span class="theme-check">✓</span>' : ''}
+    </button>`).join('');
+
   return `
     <div class="topbar">
       <h1>Korfbal Wedstrijdtracker</h1>
       <button class="link-btn" data-action="go-players">Spelers beheren</button>
+    </div>
+
+    <div class="card">
+      <h2>Thema</h2>
+      <div class="theme-row">${themeButtons}</div>
     </div>
 
     <div class="card">
@@ -660,6 +701,7 @@ function onClick(e) {
   switch (action) {
     case 'go-home': route = { name: 'home' }; render(); break;
     case 'go-players': route = { name: 'players' }; render(); break;
+    case 'set-theme': setTheme(id); render(); break;
     case 'open-match': openMatch(id); break;
     case 'delete-match': deleteMatch(id); break;
     case 'delete-player': deletePlayer(id); break;
@@ -735,7 +777,7 @@ function onSubmit(e) {
 // CSS :active is onbetrouwbaar op tablets (o.a. iPad Safari toont het vaak niet
 // zonder een touch-listener) — daarom sturen we de "ingedrukt"-status via JS.
 
-const PRESSABLE_SELECTOR = '.btn, .role-chip';
+const PRESSABLE_SELECTOR = '.btn, .role-chip, .theme-swatch';
 
 function onPressStart(e) {
   const el = e.target.closest(PRESSABLE_SELECTOR);
