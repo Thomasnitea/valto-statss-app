@@ -419,7 +419,7 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 10px;
+  gap: 30px;
   margin-bottom: 8px;
 }
 .scoreboard-side { min-width: 0; }
@@ -430,7 +430,7 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
   font-weight: 800;
   letter-spacing: .04em;
   color: rgba(255, 255, 255, 0.9);
-  margin-bottom: 6px;
+  margin-bottom: 3px;
 }
 .side-row {
   display: flex;
@@ -438,9 +438,11 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
   gap: 6px;
   font-size: 0.72rem;
   color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 2px;
+  padding: 2px 0;
   white-space: nowrap;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
 }
+.side-row:first-of-type { border-top: none; }
 .scoreboard-side-opp .side-row { flex-direction: row-reverse; }
 .side-row-value { color: #fff; font-weight: 700; }
 .side-row-pct { font-weight: 800; color: #fff; }
