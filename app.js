@@ -179,18 +179,19 @@ function computeHalfSplit(squad, initialLineup, events) {
   };
 }
 
-function renderHalfStatsRow(split) {
-  const cell = (label, s) => `
-    <div class="half-cell">
-      <div class="half-label">${label}</div>
-      <div class="half-value">${s.goals}/${s.goals + s.misses}</div>
-      <div class="half-pct">${formatPct(s.goals, s.misses)}</div>
+function renderScoreboardSide(label, split, alignClass) {
+  const row = (rowLabel, s) => `
+    <div class="side-row">
+      <span class="side-row-label">${rowLabel}</span>
+      <span class="side-row-value">${s.goals}/${s.goals + s.misses}</span>
+      <span class="side-row-pct">${formatPct(s.goals, s.misses)}</span>
     </div>`;
   return `
-    <div class="half-stats-row">
-      ${cell('Helft 1', split.half1)}
-      ${cell('Helft 2', split.half2)}
-      ${cell('Totaal', split.total)}
+    <div class="scoreboard-side ${alignClass}">
+      <div class="side-label">${escapeHtml(label)}</div>
+      ${row('H1', split.half1)}
+      ${row('H2', split.half2)}
+      ${row('Tot', split.total)}
     </div>`;
 }
 
@@ -425,10 +426,15 @@ function renderLive(matchId) {
     </div>
 
     <div class="scoreboard">
-      <div class="score-main">
-        <span>${st.score.own}</span><span class="vs">${escapeHtml(m.opponent || 'Tegenstander')}</span><span>${st.score.opponent}</span>
+      <div class="scoreboard-grid">
+        ${renderScoreboardSide('Valto', split.own, 'scoreboard-side-own')}
+        <div class="scoreboard-center">
+          <div class="score-main">
+            <span>${st.score.own}</span><span class="score-dash">-</span><span>${st.score.opponent}</span>
+          </div>
+        </div>
+        ${renderScoreboardSide('Tegenstander', split.opponent, 'scoreboard-side-opp')}
       </div>
-      ${renderHalfStatsRow(split.own)}
       <div class="swap-progress">Nog ${untilSwap} doelpunt${untilSwap === 1 ? '' : 'en'} tot rolwissel</div>
     </div>
 
@@ -440,7 +446,6 @@ function renderLive(matchId) {
 
       <div class="section section-opponent">
         <h3>Tegenstander</h3>
-        ${renderHalfStatsRow(split.opponent)}
         <div class="opponent-row">
           <button class="btn btn-miss" data-action="opponent-miss">Kans gemist</button>
           <button class="btn btn-danger" data-action="opponent-goal">Goal tegenstander</button>

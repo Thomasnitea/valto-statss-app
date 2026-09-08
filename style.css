@@ -123,6 +123,10 @@
 [data-theme="pink"] .section-opponent {
   border: none;
 }
+[data-theme="pink"] .scoreboard {
+  background: #f283af; /* Tickle Me Pink, één egale kleur i.p.v. verloop */
+  box-shadow: 0 8px 24px rgba(242, 131, 175, 0.4);
+}
 
 * { box-sizing: border-box; }
 
@@ -406,23 +410,43 @@ input[type=text]:focus, input[type=date]:focus, select:focus {
 }
 .score-main .vs { font-size: 1rem; color: var(--muted); font-weight: 400; }
 
-.scoreboard .score-main { color: #fff; font-size: 2.6rem; font-weight: 800; letter-spacing: -0.02em; }
-.scoreboard .score-main .vs { color: rgba(255, 255, 255, 0.85); font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.scoreboard .score-main { color: #fff; font-size: 2.6rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0; }
 .scoreboard .swap-progress { color: rgba(255, 255, 255, 0.85); }
 
 .swap-progress { text-align: center; font-size: 0.85rem; color: var(--muted); margin-bottom: 2px; }
 
-.half-stats-row { display: flex; gap: 4px; margin: 6px 0 10px; }
-.half-cell { flex: 1; text-align: center; }
-.half-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; color: var(--muted); }
-.half-value { font-size: 0.95rem; font-weight: 700; }
-.half-pct { font-size: 0.95rem; font-weight: 800; color: var(--primary-dark); }
+.scoreboard-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.scoreboard-side { min-width: 0; }
+.scoreboard-side-opp { text-align: right; }
+.side-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: .04em;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 6px;
+}
+.side-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+.scoreboard-side-opp .side-row { flex-direction: row-reverse; }
+.side-row-value { color: #fff; font-weight: 700; }
+.side-row-pct { font-weight: 800; color: #fff; }
 
-.scoreboard .half-label { color: rgba(255, 255, 255, 0.7); }
-.scoreboard .half-value { color: #fff; }
-.scoreboard .half-pct { color: #fff; }
-
-.section-opponent .half-pct { color: var(--opponent-text); }
+.scoreboard-center { text-align: center; padding: 0 4px; }
+.score-dash { margin: 0 12px; font-weight: 400; color: rgba(255, 255, 255, 0.6); }
 
 /* ---------------------------- Live-scherm -------------------------------- */
 
