@@ -4,7 +4,7 @@ const THEME_KEY = 'korfbal-app-theme';
 const THEMES = [
   { id: 'default', label: 'Standaard', dots: ['#243f3d', '#3ab09e', '#f95831'] },
   { id: 'ckv-valto', label: 'CKV Valto', dots: ['#1a1a1a', '#f2650a', '#2856c7'] },
-  { id: 'pink', label: 'Roze', dots: ['#c43670', '#f4a068', '#203f9a'] },
+  { id: 'pink', label: 'Roze', dots: ['#c43670', '#f283af', '#203f9a'] },
 ];
 
 const ICONS = {
