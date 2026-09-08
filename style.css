@@ -71,7 +71,7 @@
   --shadow: 0 1px 2px rgba(26, 26, 26, 0.06), 0 6px 18px rgba(26, 26, 26, 0.08);
 }
 
-/* Roze thema — Tickle Me Pink / Champagne / Blush / Raspberry Rose / Sunset */
+/* Roze thema — Raspberry Rose (eigen team) + oranje Aanval + groen Verdediging + blauw Tegenstander */
 [data-theme="pink"] {
   --bg: #fbf4eb;
   --card: #ffffff;
@@ -85,17 +85,17 @@
   --primary-light: #fbd9e5;
   --disabled-bg: #e3c3d1;
   --accent: #c43670;
-  --attack: #fbd9e5;
-  --attack-border: #f283af;
-  --attack-text: #9c2a5a;
-  --defense: #fbe8cf;
-  --defense-border: #f3cc97;
-  --defense-text: #8a5a1f;
+  --attack: #fbe7ca;
+  --attack-border: #f4a068;
+  --attack-text: #9a5518;
+  --defense: #dff5ea;
+  --defense-border: #1f9d63;
+  --defense-text: #146b44;
   --bench: #f8f2ea;
-  --opponent: #e3f7ec;
-  --opponent-border: #1f9d63;
-  --opponent-text: #146b44;
-  --danger: #1f9d63;
+  --opponent: #d9ebf3;
+  --opponent-border: #203f9a;
+  --opponent-text: #203f9a;
+  --danger: #203f9a;
   --warning: #b5860b;
   --miss: #e0709e;
   --miss-rgb: 224, 112, 158;
