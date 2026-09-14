@@ -172,10 +172,19 @@ function computeHalfSplit(squad, initialLineup, events) {
   const oppHalf1 = { goals: half1State.score.opponent, misses: half1State.opponentMisses };
   const oppHalf2 = { goals: oppTotal.goals - oppHalf1.goals, misses: oppTotal.misses - oppHalf1.misses };
 
+  const players = {};
+  squad.forEach((id) => {
+    const total = totalState.stats[id] || { goals: 0, misses: 0 };
+    const half1 = half1State.stats[id] || { goals: 0, misses: 0 };
+    const half2 = { goals: total.goals - half1.goals, misses: total.misses - half1.misses };
+    players[id] = { half1, half2, total };
+  });
+
   return {
     hasHalftime: htIndex !== -1,
     own: { half1: ownHalf1, half2: ownHalf2, total: ownTotal },
     opponent: { half1: oppHalf1, half2: oppHalf2, total: oppTotal },
+    players,
   };
 }
 
@@ -673,19 +682,19 @@ function showToast(msg) {
 function doExportExcel(matchId) {
   const m = data.matches.find((x) => x.id === matchId);
   if (!m) return;
-  const st = computeMatchState(m.squad, m.initialLineup, m.events);
-  const rows = buildStatsRows(m.squad, st.stats, getPlayerName)
-    .sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
-  exportToExcel(m, rows, { goals: m.finalScore.opponent, misses: st.opponentMisses });
+  const split = computeHalfSplit(m.squad, m.initialLineup, m.events);
+  const rows = buildSplitStatsRows(m.squad, split.players, getPlayerName)
+    .sort((a, b) => b.total.goals - a.total.goals || a.name.localeCompare(b.name));
+  exportToExcel(m, rows, split);
 }
 
 function doExportMarkdown(matchId) {
   const m = data.matches.find((x) => x.id === matchId);
   if (!m) return;
-  const st = computeMatchState(m.squad, m.initialLineup, m.events);
-  const rows = buildStatsRows(m.squad, st.stats, getPlayerName)
-    .sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
-  exportToMarkdown(m, rows, { goals: m.finalScore.opponent, misses: st.opponentMisses });
+  const split = computeHalfSplit(m.squad, m.initialLineup, m.events);
+  const rows = buildSplitStatsRows(m.squad, split.players, getPlayerName)
+    .sort((a, b) => b.total.goals - a.total.goals || a.name.localeCompare(b.name));
+  exportToMarkdown(m, rows, split);
 }
 
 // ---------------------------- Event delegatie ------------------------------
