@@ -35,6 +35,10 @@ function baseFilename(match) {
   return `wedstrijd_${match.date}_vs_${safeFilenamePart(match.opponent)}`;
 }
 
+function sortedByPeriod(rows, periodKey) {
+  return [...rows].sort((a, b) => b[periodKey].goals - a[periodKey].goals || a.name.localeCompare(b.name));
+}
+
 // split: resultaat van computeHalfSplit (own/opponent elk met half1/half2/total)
 function exportToMarkdown(match, rows, split) {
   const lines = [];
@@ -45,26 +49,48 @@ function exportToMarkdown(match, rows, split) {
   lines.push(`- **Eindstand:** ${match.finalScore.own} - ${match.finalScore.opponent}`);
   lines.push('');
 
-  lines.push('## Teamtotalen');
+  const playerTable = (periodKey) => {
+    sortedByPeriod(rows, periodKey).forEach((r) => {
+      const p = r[periodKey];
+      lines.push(`| ${r.name} | ${p.goals} | ${p.misses} | ${p.total} | ${p.pct} |`);
+    });
+  };
+
+  lines.push('## Totaal');
   lines.push('');
-  lines.push('| | Gemaakt | Gemist | Totaal kansen | Percentage |');
+  lines.push(`Valto: ${split.own.total.goals}/${split.own.total.goals + split.own.total.misses} kansen · ${formatPct(split.own.total.goals, split.own.total.misses)}`);
+  lines.push('');
+  lines.push('| Speler | Gemaakt | Gemist | Totaal | % |');
   lines.push('|---|---|---|---|---|');
-  const teamLine = (label, s) => lines.push(`| ${label} | ${s.goals} | ${s.misses} | ${s.goals + s.misses} | ${formatPct(s.goals, s.misses)} |`);
-  teamLine('Valto — Helft 1', split.own.half1);
-  teamLine('Valto — Helft 2', split.own.half2);
-  teamLine('Valto — Totaal', split.own.total);
-  teamLine('Tegenstander — Helft 1', split.opponent.half1);
-  teamLine('Tegenstander — Helft 2', split.opponent.half2);
-  teamLine('Tegenstander — Totaal', split.opponent.total);
+  playerTable('total');
   lines.push('');
 
-  lines.push('## Statistieken per speler');
+  lines.push('## Tegenstander');
   lines.push('');
-  lines.push('| Speler | H1 Gemaakt | H1 Gemist | H1 Totaal | H1 % | H2 Gemaakt | H2 Gemist | H2 Totaal | H2 % | Tot Gemaakt | Tot Gemist | Tot Totaal | Tot % |');
-  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|');
-  rows.forEach((r) => {
-    lines.push(`| ${r.name} | ${r.half1.goals} | ${r.half1.misses} | ${r.half1.total} | ${r.half1.pct} | ${r.half2.goals} | ${r.half2.misses} | ${r.half2.total} | ${r.half2.pct} | ${r.total.goals} | ${r.total.misses} | ${r.total.total} | ${r.total.pct} |`);
-  });
+  lines.push('| | Gemaakt | Gemist | Totaal | % |');
+  lines.push('|---|---|---|---|---|');
+  const teamLine = (label, s) => lines.push(`| ${label} | ${s.goals} | ${s.misses} | ${s.goals + s.misses} | ${formatPct(s.goals, s.misses)} |`);
+  teamLine('Helft 1', split.opponent.half1);
+  teamLine('Helft 2', split.opponent.half2);
+  teamLine('Totaal', split.opponent.total);
+  lines.push('');
+
+  lines.push('## Helft 1');
+  lines.push('');
+  lines.push(`Valto: ${split.own.half1.goals}/${split.own.half1.goals + split.own.half1.misses} kansen · ${formatPct(split.own.half1.goals, split.own.half1.misses)}`);
+  lines.push('');
+  lines.push('| Speler | Gemaakt | Gemist | Totaal | % |');
+  lines.push('|---|---|---|---|---|');
+  playerTable('half1');
+  lines.push('');
+
+  lines.push('## Helft 2');
+  lines.push('');
+  lines.push(`Valto: ${split.own.half2.goals}/${split.own.half2.goals + split.own.half2.misses} kansen · ${formatPct(split.own.half2.goals, split.own.half2.misses)}`);
+  lines.push('');
+  lines.push('| Speler | Gemaakt | Gemist | Totaal | % |');
+  lines.push('|---|---|---|---|---|');
+  playerTable('half2');
   lines.push('');
 
   const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
@@ -74,6 +100,11 @@ function exportToMarkdown(match, rows, split) {
 // split: resultaat van computeHalfSplit (own/opponent elk met half1/half2/total)
 function exportToExcel(match, rows, split) {
   const teamRow = (label, s) => [label, s.goals, s.misses, s.goals + s.misses, formatPct(s.goals, s.misses)];
+  const playerHeader = ['Speler', 'Gemaakt', 'Gemist', 'Totaal', '%'];
+  const playerRows = (periodKey) => sortedByPeriod(rows, periodKey).map((r) => {
+    const p = r[periodKey];
+    return [r.name, p.goals, p.misses, p.total, p.pct];
+  });
 
   const aoa = [
     ['Wedstrijdverslag'],
@@ -81,32 +112,33 @@ function exportToExcel(match, rows, split) {
     ['Tegenstander', match.opponent || 'Onbekend'],
     ['Eindstand', `${match.finalScore.own} - ${match.finalScore.opponent}`],
     [],
-    ['Teamtotalen'],
-    ['', 'Gemaakt', 'Gemist', 'Totaal kansen', 'Percentage'],
-    teamRow('Valto - Helft 1', split.own.half1),
-    teamRow('Valto - Helft 2', split.own.half2),
-    teamRow('Valto - Totaal', split.own.total),
-    teamRow('Tegenstander - Helft 1', split.opponent.half1),
-    teamRow('Tegenstander - Helft 2', split.opponent.half2),
-    teamRow('Tegenstander - Totaal', split.opponent.total),
+    ['Totaal'],
+    ['Valto', split.own.total.goals, split.own.total.misses, split.own.total.goals + split.own.total.misses, formatPct(split.own.total.goals, split.own.total.misses)],
     [],
-    ['Statistieken per speler'],
-    ['Speler', 'H1 Gemaakt', 'H1 Gemist', 'H1 Totaal', 'H1 %', 'H2 Gemaakt', 'H2 Gemist', 'H2 Totaal', 'H2 %', 'Tot Gemaakt', 'Tot Gemist', 'Tot Totaal', 'Tot %'],
-    ...rows.map((r) => [
-      r.name,
-      r.half1.goals, r.half1.misses, r.half1.total, r.half1.pct,
-      r.half2.goals, r.half2.misses, r.half2.total, r.half2.pct,
-      r.total.goals, r.total.misses, r.total.total, r.total.pct,
-    ]),
+    playerHeader,
+    ...playerRows('total'),
+    [],
+    ['Tegenstander'],
+    ['', 'Gemaakt', 'Gemist', 'Totaal', '%'],
+    teamRow('Helft 1', split.opponent.half1),
+    teamRow('Helft 2', split.opponent.half2),
+    teamRow('Totaal', split.opponent.total),
+    [],
+    ['Helft 1'],
+    ['Valto', split.own.half1.goals, split.own.half1.misses, split.own.half1.goals + split.own.half1.misses, formatPct(split.own.half1.goals, split.own.half1.misses)],
+    [],
+    playerHeader,
+    ...playerRows('half1'),
+    [],
+    ['Helft 2'],
+    ['Valto', split.own.half2.goals, split.own.half2.misses, split.own.half2.goals + split.own.half2.misses, formatPct(split.own.half2.goals, split.own.half2.misses)],
+    [],
+    playerHeader,
+    ...playerRows('half2'),
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [
-    { wch: 22 },
-    { wch: 10 }, { wch: 9 }, { wch: 9 }, { wch: 8 },
-    { wch: 10 }, { wch: 9 }, { wch: 9 }, { wch: 8 },
-    { wch: 11 }, { wch: 10 }, { wch: 10 }, { wch: 8 },
-  ];
+  ws['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Wedstrijd');
   XLSX.writeFile(wb, `${baseFilename(match)}.xlsx`);
