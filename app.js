@@ -527,13 +527,25 @@ function computeSubstitutionInfo(events) {
   return info;
 }
 
+function renderTeamTotalsRows(label, split) {
+  const row = (periodLabel, s) => `
+    <tr>
+      <td>${escapeHtml(label)} — ${periodLabel}</td>
+      <td>${s.goals}</td>
+      <td>${s.misses}</td>
+      <td>${s.goals + s.misses}</td>
+      <td>${formatPct(s.goals, s.misses)}</td>
+    </tr>`;
+  return `${row('Helft 1', split.half1)}${row('Helft 2', split.half2)}${row('Totaal', split.total)}`;
+}
+
 function renderSummary(matchId) {
   const m = data.matches.find((x) => x.id === matchId);
   if (!m) return renderHome();
 
-  const st = computeMatchState(m.squad, m.initialLineup, m.events);
-  const rows = buildStatsRows(m.squad, st.stats, getPlayerName)
-    .sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
+  const split = computeHalfSplit(m.squad, m.initialLineup, m.events);
+  const rows = buildSplitStatsRows(m.squad, split.players, getPlayerName)
+    .sort((a, b) => b.total.goals - a.total.goals || a.name.localeCompare(b.name));
   const subInfo = computeSubstitutionInfo(m.events);
 
   const tableRows = rows.map((r) => {
@@ -544,10 +556,18 @@ function renderSummary(matchId) {
     return `
     <tr>
       <td>${escapeHtml(r.name)}${badges}</td>
-      <td>${r.goals}</td>
-      <td>${r.misses}</td>
-      <td>${r.total}</td>
-      <td>${r.pct}</td>
+      <td>${r.half1.goals}</td>
+      <td>${r.half1.misses}</td>
+      <td>${r.half1.total}</td>
+      <td>${r.half1.pct}</td>
+      <td>${r.half2.goals}</td>
+      <td>${r.half2.misses}</td>
+      <td>${r.half2.total}</td>
+      <td>${r.half2.pct}</td>
+      <td>${r.total.goals}</td>
+      <td>${r.total.misses}</td>
+      <td>${r.total.total}</td>
+      <td>${r.total.pct}</td>
     </tr>`;
   }).join('');
 
@@ -562,12 +582,37 @@ function renderSummary(matchId) {
       <div class="score-main"><span>${m.finalScore.own}</span><span class="vs">eindstand</span><span>${m.finalScore.opponent}</span></div>
     </div>
     <div class="card">
+      <h2>Teamtotalen</h2>
+      <div class="table-scroll">
+        <table class="stats">
+          <thead><tr><th></th><th>Gemaakt</th><th>Gemist</th><th>Totaal</th><th>%</th></tr></thead>
+          <tbody>
+            ${renderTeamTotalsRows('Valto', split.own)}
+            ${renderTeamTotalsRows('Tegenstander', split.opponent)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
       <h2>Statistieken per speler</h2>
-      <table class="stats">
-        <thead><tr><th>Speler</th><th>Gemaakt</th><th>Gemist</th><th>Totaal</th><th>%</th></tr></thead>
-        <tbody>${tableRows || '<tr><td colspan="5" class="empty-state">Geen spelers</td></tr>'}</tbody>
-      </table>
-      <p class="muted mt-8">Tegenstander: ${m.finalScore.opponent} doelpunten, ${st.opponentMisses} gemiste kansen</p>
+      <div class="table-scroll">
+        <table class="stats">
+          <thead>
+            <tr>
+              <th rowspan="2">Speler</th>
+              <th colspan="4">Helft 1</th>
+              <th colspan="4">Helft 2</th>
+              <th colspan="4">Totaal</th>
+            </tr>
+            <tr>
+              <th>Gemaakt</th><th>Gemist</th><th>Totaal</th><th>%</th>
+              <th>Gemaakt</th><th>Gemist</th><th>Totaal</th><th>%</th>
+              <th>Gemaakt</th><th>Gemist</th><th>Totaal</th><th>%</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows || '<tr><td colspan="13" class="empty-state">Geen spelers</td></tr>'}</tbody>
+        </table>
+      </div>
     </div>
     <div class="btn-row">
       <button class="btn btn-primary btn-block" data-action="export-excel" data-id="${m.id}">Exporteer naar Excel</button>

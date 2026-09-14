@@ -11,22 +11,6 @@ function safeFilenamePart(text) {
   return (text || '').trim().replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'onbekend';
 }
 
-// squadIds: player ids to include as rows (in display order)
-function buildStatsRows(squadIds, playerStats, getPlayerName) {
-  return squadIds.map((id) => {
-    const s = playerStats[id] || { goals: 0, misses: 0 };
-    const total = s.goals + s.misses;
-    return {
-      id,
-      name: getPlayerName(id),
-      goals: s.goals,
-      misses: s.misses,
-      total,
-      pct: formatPct(s.goals, s.misses),
-    };
-  });
-}
-
 function periodStats(s) {
   return { goals: s.goals, misses: s.misses, total: s.goals + s.misses, pct: formatPct(s.goals, s.misses) };
 }
