@@ -15,22 +15,6 @@ function chartDonut(pct, size) {
     </svg>`;
 }
 
-// values: goals per wedstrijd (oudste eerst)
-function chartSpark(values) {
-  if (!values || values.length === 0) return '';
-  const w = 120;
-  const h = 34;
-  const n = values.length;
-  const max = Math.max(...values, 1);
-  const slot = w / n;
-  const bw = Math.min(14, slot * 0.64);
-  const bars = values.map((v, i) => {
-    const bh = Math.max(2, (v / max) * (h - 4));
-    const x = i * slot + (slot - bw) / 2;
-    return `<rect x="${x.toFixed(1)}" y="${(h - bh).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="2" class="${v === 0 ? 'ch-bar ch-zero' : 'ch-bar'}"/>`;
-  }).join('');
-  return `<svg class="ch-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">${bars}</svg>`;
-}
 
 // items: [{ label, value, marker (xG of null) }]
 function chartBarsXg(items) {

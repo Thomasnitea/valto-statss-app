@@ -699,8 +699,6 @@ table.stats.compare td:not(:first-child), table.stats.compare th:not(:first-chil
 .xg-badge.down, .vs-team.down { background: #fbe0de; color: #b3261e; }
 .vs-team { margin-top: 4px; }
 .pstat-badges { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; min-height: 4px; }
-.pstat-spark { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 0.75rem; }
-.pstat-spark .ch-spark { width: 120px; height: 34px; flex-shrink: 0; }
 
 .ch-donut-bg { fill: none; stroke: var(--bench); stroke-width: 11; }
 .ch-donut-fg { fill: none; stroke: var(--primary); stroke-width: 11; stroke-linecap: round; }
@@ -734,3 +732,6 @@ tr.row-link:active { background: var(--bench); }
 
 .chip-row:not(.chip-row-sort) { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
 .chip-row:not(.chip-row-sort) .chip { flex-shrink: 0; white-space: nowrap; }
+
+.filter-select { width: auto; min-width: 190px; flex-shrink: 0; border: 2px solid var(--border); background: var(--card); color: var(--text); border-radius: 999px; padding: 8px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.filter-select.active { border-color: var(--primary); background: var(--primary-light); color: var(--primary-dark); }

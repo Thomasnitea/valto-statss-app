@@ -19,7 +19,6 @@ let route = { name: 'home' };
 let subModalOpen = false;
 let pendingShot = null;
 let statsFilter = 'all';
-let statsSort = 'goals';
 let shotMapMode = 'dots';
 let toast = null;
 let toastTimer = null;
@@ -586,46 +585,37 @@ function renderPlayerDashboard() {
   if (!['all', 'last5'].includes(statsFilter) && !finished.some((m) => m.id === statsFilter)) statsFilter = 'all';
 
   const chip = (id, label) => `<button type="button" class="chip ${statsFilter === id ? 'active' : ''}" data-action="stats-filter" data-id="${id}">${label}</button>`;
-  const filterChips = [
-    chip('all', 'Alle wedstrijden'),
-    finished.length > 1 ? chip('last5', 'Laatste 5') : '',
-    ...[...finished].reverse().map((m) => chip(m.id, `${formatDate(m.date)} · ${escapeHtml(m.opponent || 'Onbekend')}`)),
-  ].join('');
+  const matchOptions = [...finished].reverse().map((m) =>
+    `<option value="${m.id}" ${statsFilter === m.id ? 'selected' : ''}>${formatDate(m.date)} · ${escapeHtml(m.opponent || 'Onbekend')}</option>`).join('');
+  const filterRow = `
+    <div class="chip-row">
+      ${chip('all', 'Alle wedstrijden')}
+      ${finished.length > 1 ? chip('last5', 'Laatste 5') : ''}
+      <select class="filter-select ${!['all', 'last5'].includes(statsFilter) ? 'active' : ''}" data-change="stats-match" aria-label="Kies een wedstrijd">
+        <option value="" ${['all', 'last5'].includes(statsFilter) ? 'selected' : ''}>Per wedstrijd…</option>
+        ${matchOptions}
+      </select>
+    </div>`;
 
-  const sorts = [['goals', 'Goals'], ['gpg', 'Goals/wed'], ['pct', 'Percentage'], ['attempts', 'Kansen'], ['xg', 'xG']];
-  const sortChips = sorts.map(([key, label]) =>
-    `<button type="button" class="chip ${statsSort === key ? 'active' : ''}" data-action="stats-sort" data-id="${key}">${label}</button>`).join('');
-
-  const sortKey = {
-    goals: (a) => a.goals,
-    gpg: (a) => (a.games ? a.goals / a.games : 0),
-    pct: (a) => (a.goals + a.misses === 0 ? -1 : a.goals / (a.goals + a.misses)),
-    attempts: (a) => a.goals + a.misses,
-    xg: (a) => a.xg,
-  }[statsSort];
-
+  // Vaste volgorde (op naam), geen rangschikking op prestaties.
   const ids = Object.keys(agg).filter((id) => getPlayer(id))
-    .sort((x, y) => sortKey(agg[y]) - sortKey(agg[x]) || getPlayerName(x).localeCompare(getPlayerName(y)));
+    .sort((x, y) => getPlayerName(x).localeCompare(getPlayerName(y)));
 
-  // Teamstrook
-  const top = [...ids].sort((x, y) => agg[y].goals - agg[x].goals)[0];
-  const finisherIds = ids.filter((id) => agg[id].locShots >= 1);
-  const finisher = [...finisherIds].sort((x, y) => (agg[y].locGoals - agg[y].xg) - (agg[x].locGoals - agg[x].xg))[0];
+  // Teamstrook: over/under t.o.v. verwachte goals
   const teamTile = (num, lbl) => `<div class="tile"><span class="tile-num">${num}</span><span class="tile-lbl">${lbl}</span></div>`;
+  const teamDiff = team.locGoals - team.xg;
   const strip = `
     <div class="tiles tiles-auto">
       ${teamTile(selected.length, selected.length === 1 ? 'Wedstrijd' : 'Wedstrijden')}
       ${teamTile(team.goals, 'Goals')}
       ${teamTile(formatPct(team.goals, team.misses), 'Schotpercentage')}
       ${team.locShots > 0 ? teamTile(formatXg(team.xg), 'xG') : ''}
-      ${top && agg[top].goals > 0 ? teamTile(`${escapeHtml(getPlayerName(top))} <small>${agg[top].goals}</small>`, 'Topscorer') : ''}
-      ${finisher ? teamTile(`${escapeHtml(getPlayerName(finisher))} <small>${fmtSigned(agg[finisher].locGoals - agg[finisher].xg)}</small>`, 'Beste afwerker (xG)') : ''}
+      ${team.locShots > 0 ? teamTile(`<span class="${teamDiff >= 0 ? 'pos' : 'neg'}">${fmtSigned(teamDiff)}</span>`, teamDiff >= 0 ? 'Over xG' : 'Onder xG') : ''}
     </div>`;
 
   const cards = ids.map((id) => {
     const a = agg[id];
     const attempts = a.goals + a.misses;
-    const goalsPerMatch = a.perMatch.map((r) => r.goals);
     return `
       <div class="pstat-card" data-action="open-player" data-id="${id}">
         <div class="pstat-head">
@@ -643,14 +633,12 @@ function renderPlayerDashboard() {
           <div><span class="pstat-num">${a.locShots > 0 ? formatXg(a.xg) : '–'}</span><span class="pstat-lbl">xG</span></div>
         </div>
         <div class="pstat-badges">${xgBadge(a)}${selected.length > 0 && ids.length > 1 ? vsTeamBadge(a, team) : ''}</div>
-        ${a.games >= 2 ? `<div class="pstat-spark">${chartSpark(goalsPerMatch)}<span class="muted">Goals per wedstrijd</span></div>` : ''}
       </div>`;
   }).join('');
 
   return `
-    <div class="chip-row">${filterChips}</div>
+    ${filterRow}
     ${strip}
-    <div class="chip-row chip-row-sort"><span class="muted">Sorteer op</span>${sortChips}</div>
     <div class="pstat-grid-wrap">${cards || '<div class="empty-state">Geen spelergegevens voor deze selectie.</div>'}</div>
   `;
 }
@@ -1443,7 +1431,6 @@ function onClick(e) {
     case 'go-players': route = { name: 'players', tab: 'stats', playerId: null }; render(); break;
     case 'players-tab': route = { name: 'players', tab: id, playerId: null }; render(); break;
     case 'stats-filter': statsFilter = id; render(); break;
-    case 'stats-sort': statsSort = id; render(); break;
     case 'shotmap-mode': shotMapMode = id; render(); break;
     case 'open-player': route = { name: 'players', tab: 'stats', playerId: id }; render(); break;
     case 'close-player': route = { name: 'players', tab: 'stats', playerId: null }; render(); break;
@@ -1484,6 +1471,15 @@ function onClick(e) {
     case 'export-excel': doExportExcel(id); break;
     case 'export-md': doExportMarkdown(id); break;
     default: break;
+  }
+}
+
+function onChange(e) {
+  const el = e.target.closest('[data-change]');
+  if (!el) return;
+  if (el.dataset.change === 'stats-match') {
+    statsFilter = el.value || 'all';
+    render();
   }
 }
 
@@ -1620,6 +1616,7 @@ document.addEventListener('pointercancel', onSwipePointerUp);
 const app = document.getElementById('app');
 app.addEventListener('click', onClick);
 app.addEventListener('submit', onSubmit);
+app.addEventListener('change', onChange);
 render();
 
 if ('serviceWorker' in navigator) {
