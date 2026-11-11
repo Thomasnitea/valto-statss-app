@@ -12,11 +12,60 @@ const ICONS = {
   swap: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px;margin-right:6px;"><path d="M7 3v12"></path><path d="M3 11l4 4 4-4"></path><path d="M17 21V9"></path><path d="M21 13l-4-4-4 4"></path></svg>',
 };
 
+const DEFAULT_SETTINGS = { shotLocation: false, opponentShotLocation: false, possession: false };
+
 let data = loadData();
 let route = { name: 'home' };
 let subModalOpen = false;
+let pendingShot = null;
+let statsFilter = 'all';
+let statsSort = 'goals';
 let toast = null;
 let toastTimer = null;
+
+function matchSettings(m) {
+  return { ...DEFAULT_SETTINGS, ...(m.settings || {}) };
+}
+
+// ---- Wedstrijdklok: verstreken tijd pauzeert bij Rust of handmatig ----
+function clockElapsed(m) {
+  const c = m.clock;
+  if (!c) return 0;
+  return c.elapsedMs + (c.running && c.startedAt ? Date.now() - c.startedAt : 0);
+}
+
+function clockRunning(m) {
+  return !!(m.clock && m.clock.running);
+}
+
+function startClock(m) {
+  if (!m.clock) m.clock = { running: false, elapsedMs: 0, startedAt: null };
+  if (m.clock.running) return;
+  m.clock.running = true;
+  m.clock.startedAt = Date.now();
+}
+
+function pauseClock(m) {
+  if (!m.clock || !m.clock.running) return;
+  m.clock.elapsedMs = clockElapsed(m);
+  m.clock.running = false;
+  m.clock.startedAt = null;
+}
+
+function formatClock(ms) {
+  const total = Math.max(0, Math.floor((ms || 0) / 1000));
+  const mm = String(Math.floor(total / 60)).padStart(2, '0');
+  const ss = String(total % 60).padStart(2, '0');
+  return `${mm}:${ss}`;
+}
+
+function formatEventTime(ev) {
+  return ev.t == null ? '--:--' : formatClock(ev.t);
+}
+
+function pushEvent(m, ev) {
+  m.events.push({ ...ev, t: clockElapsed(m), ts: Date.now() });
+}
 
 function loadData() {
   try {
@@ -97,10 +146,11 @@ function initials(name) {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
-function statLine(id, st) {
-  const s = st.stats[id] || { goals: 0, misses: 0 };
+function statLine(id, st, showXg) {
+  const s = st.stats[id] || { goals: 0, misses: 0, xg: 0, locShots: 0 };
   const total = s.goals + s.misses;
-  return `<div class="stat-line">${s.goals}/${total} kansen · <span class="stat-pct">${formatPct(s.goals, s.misses)}</span></div>`;
+  const xg = showXg && s.locShots > 0 ? ` · xG ${formatXg(s.xg)}` : '';
+  return `<div class="stat-line">${s.goals}/${total} kansen · <span class="stat-pct">${formatPct(s.goals, s.misses)}</span>${xg}</div>`;
 }
 
 // ---- Wedstrijd-engine: state wordt volledig afgeleid uit het event-log ----
@@ -111,25 +161,31 @@ function computeMatchState(squad, initialLineup, events) {
   let opponent = 0;
   let ownMisses = 0;
   let opponentMisses = 0;
+  let ownXg = 0;
+  let ownLocShots = 0;
+  let oppXg = 0;
+  let oppLocShots = 0;
   let counter = 0;
   const stats = {};
-  squad.forEach((id) => { stats[id] = { goals: 0, misses: 0 }; });
+  squad.forEach((id) => { stats[id] = { goals: 0, misses: 0, xg: 0, locShots: 0, locGoals: 0 }; });
   let lastEventWasSwap = false;
 
   events.forEach((ev) => {
     lastEventWasSwap = false;
-    if (ev.type === 'goal') {
-      if (stats[ev.playerId]) stats[ev.playerId].goals++;
-      own++;
-      counter++;
-    } else if (ev.type === 'miss') {
-      if (stats[ev.playerId]) stats[ev.playerId].misses++;
-      ownMisses++;
-    } else if (ev.type === 'opponentGoal') {
-      opponent++;
-      counter++;
-    } else if (ev.type === 'opponentMiss') {
-      opponentMisses++;
+    if (ev.type === 'goal' || ev.type === 'miss') {
+      const x = xgForEvent(ev);
+      const isGoal = ev.type === 'goal';
+      const s = stats[ev.playerId];
+      if (s) {
+        if (isGoal) s.goals++; else s.misses++;
+        if (x != null) { s.xg += x; s.locShots++; if (isGoal) s.locGoals++; }
+      }
+      if (x != null) { ownXg += x; ownLocShots++; }
+      if (isGoal) { own++; counter++; } else { ownMisses++; }
+    } else if (ev.type === 'opponentGoal' || ev.type === 'opponentMiss') {
+      const x = xgForEvent(ev);
+      if (x != null) { oppXg += x; oppLocShots++; }
+      if (ev.type === 'opponentGoal') { opponent++; counter++; } else { opponentMisses++; }
     } else if (ev.type === 'substitution') {
       let idx = attackers.indexOf(ev.playerOut);
       if (idx !== -1) {
@@ -149,7 +205,10 @@ function computeMatchState(squad, initialLineup, events) {
   });
 
   const bench = squad.filter((id) => !attackers.includes(id) && !defenders.includes(id));
-  return { attackers, defenders, bench, score: { own, opponent }, ownMisses, opponentMisses, counter, stats, lastEventWasSwap };
+  return {
+    attackers, defenders, bench, score: { own, opponent }, ownMisses, opponentMisses,
+    ownXg, ownLocShots, oppXg, oppLocShots, counter, stats, lastEventWasSwap,
+  };
 }
 
 function findHalftimeIndex(events) {
@@ -158,42 +217,150 @@ function findHalftimeIndex(events) {
 
 // Splitst de wedstrijd in helft 1 / helft 2 / totaal voor eigen team en tegenstander.
 // Helft 2 wordt afgeleid als totaal - helft 1 (geen aparte opstelling-berekening nodig).
+const PERIOD_KEYS = ['goals', 'misses', 'xg', 'locShots', 'locGoals'];
+
+function periodOf(s) {
+  const r = {};
+  PERIOD_KEYS.forEach((k) => { r[k] = (s && s[k]) || 0; });
+  return r;
+}
+
+function diffPeriod(a, b) {
+  const r = {};
+  PERIOD_KEYS.forEach((k) => { r[k] = a[k] - b[k]; });
+  return r;
+}
+
 function computeHalfSplit(squad, initialLineup, events) {
   const htIndex = findHalftimeIndex(events);
   const totalState = computeMatchState(squad, initialLineup, events);
   const half1Events = htIndex === -1 ? events : events.slice(0, htIndex);
   const half1State = computeMatchState(squad, initialLineup, half1Events);
 
-  const ownTotal = { goals: totalState.score.own, misses: totalState.ownMisses };
-  const ownHalf1 = { goals: half1State.score.own, misses: half1State.ownMisses };
-  const ownHalf2 = { goals: ownTotal.goals - ownHalf1.goals, misses: ownTotal.misses - ownHalf1.misses };
+  const team = (state, own) => periodOf(own
+    ? { goals: state.score.own, misses: state.ownMisses, xg: state.ownXg, locShots: state.ownLocShots }
+    : { goals: state.score.opponent, misses: state.opponentMisses, xg: state.oppXg, locShots: state.oppLocShots });
 
-  const oppTotal = { goals: totalState.score.opponent, misses: totalState.opponentMisses };
-  const oppHalf1 = { goals: half1State.score.opponent, misses: half1State.opponentMisses };
-  const oppHalf2 = { goals: oppTotal.goals - oppHalf1.goals, misses: oppTotal.misses - oppHalf1.misses };
+  const ownTotal = team(totalState, true);
+  const ownHalf1 = team(half1State, true);
+  const oppTotal = team(totalState, false);
+  const oppHalf1 = team(half1State, false);
 
   const players = {};
   squad.forEach((id) => {
-    const total = totalState.stats[id] || { goals: 0, misses: 0 };
-    const half1 = half1State.stats[id] || { goals: 0, misses: 0 };
-    const half2 = { goals: total.goals - half1.goals, misses: total.misses - half1.misses };
-    players[id] = { half1, half2, total };
+    const total = periodOf(totalState.stats[id]);
+    const half1 = periodOf(half1State.stats[id]);
+    players[id] = { half1, half2: diffPeriod(total, half1), total };
   });
 
   return {
     hasHalftime: htIndex !== -1,
-    own: { half1: ownHalf1, half2: ownHalf2, total: ownTotal },
-    opponent: { half1: oppHalf1, half2: oppHalf2, total: oppTotal },
+    hasOwnShotData: totalState.ownLocShots > 0,
+    hasOppShotData: totalState.oppLocShots > 0,
+    hasShotData: totalState.ownLocShots + totalState.oppLocShots > 0,
+    own: { half1: ownHalf1, half2: diffPeriod(ownTotal, ownHalf1), total: ownTotal },
+    opponent: { half1: oppHalf1, half2: diffPeriod(oppTotal, oppHalf1), total: oppTotal },
     players,
   };
 }
 
-function renderScoreboardSide(label, split, alignClass) {
+// Balbezit in ms per helft en totaal, op basis van 'possession'-events en de wedstrijdklok.
+function computePossession(m) {
+  const res = { half1: { own: 0, opp: 0 }, half2: { own: 0, opp: 0 } };
+  let half = 'half1';
+  let side = null;
+  let since = 0;
+  const close = (t) => {
+    if (side) res[half][side === 'own' ? 'own' : 'opp'] += Math.max(0, t - since);
+  };
+  m.events.forEach((ev) => {
+    if (ev.t == null) return;
+    if (ev.type === 'possession') {
+      close(ev.t);
+      side = ev.side;
+      since = ev.t;
+    } else if (ev.type === 'halftime') {
+      close(ev.t);
+      side = null;
+      half = 'half2';
+    }
+  });
+  close(clockElapsed(m));
+  res.total = { own: res.half1.own + res.half2.own, opp: res.half1.opp + res.half2.opp };
+  return res;
+}
+
+function possessionPct(p) {
+  const sum = p.own + p.opp;
+  if (sum <= 0) return null;
+  return Math.round((p.own / sum) * 100);
+}
+
+function currentPossessionSide(m) {
+  for (let i = m.events.length - 1; i >= 0; i--) {
+    const ev = m.events[i];
+    if (ev.type === 'halftime') return null;
+    if (ev.type === 'possession') return ev.side;
+  }
+  return null;
+}
+
+function formatPossession(p) {
+  const own = possessionPct(p);
+  if (own == null) return '–';
+  return `${own}% – ${100 - own}%`;
+}
+
+// Tijdlijn van goals, rust en wissels met de lopende stand.
+function buildTimeline(m) {
+  let own = 0;
+  let opp = 0;
+  const items = [];
+  m.events.forEach((ev) => {
+    if (ev.type === 'goal') {
+      own++;
+      items.push({ kind: 'goal', t: ev.t, label: getPlayerName(ev.playerId), own, opp, xg: xgForEvent(ev) });
+    } else if (ev.type === 'opponentGoal') {
+      opp++;
+      items.push({ kind: 'opponentGoal', t: ev.t, label: 'Tegenstander', own, opp, xg: xgForEvent(ev) });
+    } else if (ev.type === 'halftime') {
+      items.push({ kind: 'halftime', t: ev.t, label: 'Rust', own, opp });
+    } else if (ev.type === 'substitution') {
+      items.push({ kind: 'sub', t: ev.t, label: `${getPlayerName(ev.playerOut)} eruit, ${getPlayerName(ev.playerIn)} erin`, own, opp });
+    }
+  });
+  return items;
+}
+
+function renderTimeline(items, newestFirst) {
+  if (items.length === 0) return '<div class="empty-state">Nog geen doelpunten.</div>';
+  const list = newestFirst ? [...items].reverse() : items;
+  return `<div class="timeline">${list.map((it) => {
+    const time = it.t == null ? '--:--' : formatClock(it.t);
+    if (it.kind === 'halftime') {
+      return `<div class="tl-row tl-break"><span class="tl-time">${time}</span><span class="tl-text">Rust · stand ${it.own}-${it.opp}</span></div>`;
+    }
+    if (it.kind === 'sub') {
+      return `<div class="tl-row tl-sub"><span class="tl-time">${time}</span><span class="tl-text">Wissel: ${escapeHtml(it.label)}</span></div>`;
+    }
+    const mine = it.kind === 'goal';
+    const xg = it.xg != null ? ` <span class="tl-xg">xG ${formatXg(it.xg)}</span>` : '';
+    return `<div class="tl-row ${mine ? 'tl-own' : 'tl-opp'}"><span class="tl-time">${time}</span><span class="tl-dot"></span><span class="tl-text">Doelpunt ${escapeHtml(it.label)}${xg}</span><span class="tl-score">${it.own}-${it.opp}</span></div>`;
+  }).join('')}</div>`;
+}
+
+function renderScoreboardSide(label, split, alignClass, xgTotal) {
   const row = (rowLabel, s) => `
     <div class="side-row">
       <span class="side-row-label">${rowLabel}</span>
       <span class="side-row-value">${s.goals}/${s.goals + s.misses}</span>
       <span class="side-row-pct">${formatPct(s.goals, s.misses)}</span>
+    </div>`;
+  const xgRow = xgTotal == null ? '' : `
+    <div class="side-row">
+      <span class="side-row-label">xG</span>
+      <span class="side-row-value">${formatXg(xgTotal)}</span>
+      <span class="side-row-pct"></span>
     </div>`;
   return `
     <div class="scoreboard-side ${alignClass}">
@@ -201,6 +368,7 @@ function renderScoreboardSide(label, split, alignClass) {
       ${row('H1', split.half1)}
       ${row('H2', split.half2)}
       ${row('Tot', split.total)}
+      ${xgRow}
     </div>`;
 }
 
@@ -208,6 +376,7 @@ function renderScoreboardSide(label, split, alignClass) {
 
 function render() {
   const app = document.getElementById('app');
+  if (route.name !== 'live') pendingShot = null;
   let html;
   switch (route.name) {
     case 'players': html = renderPlayers(); break;
@@ -259,7 +428,7 @@ function renderHome() {
   return `
     <div class="topbar">
       <h1>Korfbal Wedstrijdtracker</h1>
-      <button class="link-btn" data-action="go-players">Spelers beheren</button>
+      <button class="link-btn" data-action="go-players">Spelers</button>
     </div>
 
     <div class="card">
@@ -290,6 +459,173 @@ function renderHome() {
 }
 
 function renderPlayers() {
+  const tab = route.tab || 'stats';
+  if (route.playerId && tab === 'stats') return renderPlayerDetail(route.playerId);
+  const tabs = `
+    <div class="tabs">
+      <button type="button" class="tab ${tab === 'stats' ? 'active' : ''}" data-action="players-tab" data-id="stats">Statistieken</button>
+      <button type="button" class="tab ${tab === 'manage' ? 'active' : ''}" data-action="players-tab" data-id="manage">Beheren</button>
+    </div>`;
+  return `
+    <div class="topbar">
+      <button class="link-btn" data-action="go-home">&larr; Terug</button>
+      <h1>Spelers</h1>
+      <span></span>
+    </div>
+    ${tabs}
+    ${tab === 'stats' ? renderPlayerDashboard() : renderPlayersManage()}
+  `;
+}
+
+function playerAggregates() {
+  const matches = data.matches.filter((m) => m.status === 'finished');
+  const selected = statsFilter === 'all' ? matches : matches.filter((m) => m.id === statsFilter);
+  const agg = {};
+  selected.forEach((m) => {
+    const st = computeMatchState(m.squad, m.initialLineup, m.events);
+    m.squad.forEach((id) => {
+      const s = st.stats[id];
+      if (!s) return;
+      const a = agg[id] = agg[id] || { games: 0, goals: 0, misses: 0, xg: 0, locShots: 0, locGoals: 0, perMatch: [] };
+      a.games++;
+      a.goals += s.goals;
+      a.misses += s.misses;
+      a.xg += s.xg;
+      a.locShots += s.locShots;
+      a.locGoals += s.locGoals;
+      a.perMatch.push({ match: m, ...s });
+    });
+  });
+  return { matches, selected, agg };
+}
+
+function renderPlayerDashboard() {
+  const { matches, agg } = playerAggregates();
+  if (statsFilter !== 'all' && !matches.some((m) => m.id === statsFilter)) statsFilter = 'all';
+
+  const filterChips = [
+    `<button type="button" class="chip ${statsFilter === 'all' ? 'active' : ''}" data-action="stats-filter" data-id="all">Alle wedstrijden</button>`,
+    ...matches.sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((m) =>
+      `<button type="button" class="chip ${statsFilter === m.id ? 'active' : ''}" data-action="stats-filter" data-id="${m.id}">${formatDate(m.date)} · ${escapeHtml(m.opponent || 'Onbekend')}</button>`),
+  ].join('');
+
+  const sorts = [['goals', 'Goals'], ['pct', 'Percentage'], ['attempts', 'Kansen'], ['xg', 'xG']];
+  const sortChips = sorts.map(([key, label]) =>
+    `<button type="button" class="chip ${statsSort === key ? 'active' : ''}" data-action="stats-sort" data-id="${key}">${label}</button>`).join('');
+
+  const pct = (a) => (a.goals + a.misses === 0 ? -1 : a.goals / (a.goals + a.misses));
+  const sortKey = {
+    goals: (a) => a.goals,
+    pct,
+    attempts: (a) => a.goals + a.misses,
+    xg: (a) => a.xg,
+  }[statsSort];
+
+  const ids = Object.keys(agg).filter((id) => getPlayer(id))
+    .sort((x, y) => sortKey(agg[y]) - sortKey(agg[x]) || getPlayerName(x).localeCompare(getPlayerName(y)));
+
+  const cards = ids.map((id) => {
+    const a = agg[id];
+    const attempts = a.goals + a.misses;
+    const p = attempts === 0 ? 0 : Math.round((a.goals / attempts) * 100);
+    const xgLine = a.locShots > 0
+      ? `<div class="pstat-xg">xG ${formatXg(a.xg)} · afronding <strong>${a.locGoals - a.xg >= 0 ? '+' : ''}${(a.locGoals - a.xg).toFixed(2).replace('.', ',')}</strong></div>`
+      : '';
+    return `
+      <div class="pstat-card" data-action="open-player" data-id="${id}">
+        <div class="pstat-head">
+          <span class="avatar">${escapeHtml(initials(getPlayerName(id)))}</span>
+          <div class="pstat-name">
+            <div class="name">${escapeHtml(getPlayerName(id))}</div>
+            <div class="meta">${a.games} wedstrijd${a.games === 1 ? '' : 'en'}</div>
+          </div>
+          <div class="pstat-pct">${formatPct(a.goals, a.misses)}</div>
+        </div>
+        <div class="pstat-bar"><span style="width:${p}%"></span></div>
+        <div class="pstat-grid">
+          <div><span class="pstat-num">${a.goals}</span><span class="pstat-lbl">Goals</span></div>
+          <div><span class="pstat-num">${attempts}</span><span class="pstat-lbl">Kansen</span></div>
+          <div><span class="pstat-num">${a.misses}</span><span class="pstat-lbl">Gemist</span></div>
+          <div><span class="pstat-num">${a.locShots > 0 ? formatXg(a.xg) : '–'}</span><span class="pstat-lbl">xG</span></div>
+        </div>
+        ${xgLine}
+      </div>`;
+  }).join('');
+
+  if (matches.length === 0) {
+    return '<div class="card"><div class="empty-state">Nog geen afgeronde wedstrijden. Zodra je een wedstrijd beëindigt, verschijnen hier de spelerstatistieken.</div></div>';
+  }
+
+  return `
+    <div class="chip-row">${filterChips}</div>
+    <div class="chip-row chip-row-sort"><span class="muted">Sorteer op</span>${sortChips}</div>
+    <div class="pstat-grid-wrap">${cards || '<div class="empty-state">Geen spelergegevens voor deze selectie.</div>'}</div>
+  `;
+}
+
+function renderPlayerDetail(playerId) {
+  const { agg, selected } = playerAggregates();
+  const a = agg[playerId];
+  const name = getPlayerName(playerId);
+  const back = `
+    <div class="topbar">
+      <button class="link-btn" data-action="close-player">&larr; Spelers</button>
+      <h1>${escapeHtml(name)}</h1>
+      <span></span>
+    </div>`;
+  if (!a) return `${back}<div class="card"><div class="empty-state">Geen gegevens voor deze speler in de gekozen selectie.</div></div>`;
+
+  const attempts = a.goals + a.misses;
+  const tiles = `
+    <div class="tiles">
+      <div class="tile"><span class="tile-num">${formatPct(a.goals, a.misses)}</span><span class="tile-lbl">Percentage</span></div>
+      <div class="tile"><span class="tile-num">${a.goals}</span><span class="tile-lbl">Goals</span></div>
+      <div class="tile"><span class="tile-num">${attempts}</span><span class="tile-lbl">Kansen</span></div>
+      <div class="tile"><span class="tile-num">${a.locShots > 0 ? formatXg(a.xg) : '–'}</span><span class="tile-lbl">xG</span></div>
+    </div>`;
+
+  const rows = a.perMatch.sort((x, y) => (y.match.date || '').localeCompare(x.match.date || '')).map((r) => `
+    <tr>
+      <td>${formatDate(r.match.date)}</td>
+      <td>${escapeHtml(r.match.opponent || 'Onbekend')}</td>
+      <td>${r.goals}</td>
+      <td>${r.goals + r.misses}</td>
+      <td>${formatPct(r.goals, r.misses)}</td>
+      <td>${r.locShots > 0 ? formatXg(r.xg) : '–'}</td>
+    </tr>`).join('');
+
+  const shots = [];
+  selected.forEach((m) => {
+    m.events.forEach((ev) => {
+      if ((ev.type === 'goal' || ev.type === 'miss') && ev.playerId === playerId && ev.loc) {
+        shots.push({ loc: ev.loc, type: ev.type });
+      }
+    });
+  });
+  const shotMap = shots.length > 0 ? `
+    <div class="card">
+      <h2>Schotkaart</h2>
+      <p class="muted">Groen = goal, rood = gemist (${shots.length} schot${shots.length === 1 ? '' : 'ten'} met locatie).</p>
+      <div class="field-wrap">${renderFieldSvg({ labels: false, shots })}</div>
+    </div>` : '';
+
+  return `
+    ${back}
+    ${tiles}
+    <div class="card">
+      <h2>Per wedstrijd</h2>
+      <div class="table-scroll">
+        <table class="stats">
+          <thead><tr><th>Datum</th><th>Tegenstander</th><th>Goals</th><th>Kansen</th><th>%</th><th>xG</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+    ${shotMap}
+  `;
+}
+
+function renderPlayersManage() {
   const rows = data.players.map((p) => `
     <div class="swipe-wrap">
       <div class="swipe-delete" data-action="delete-player" data-id="${p.id}">
@@ -304,11 +640,6 @@ function renderPlayers() {
     </div>`).join('');
 
   return `
-    <div class="topbar">
-      <button class="link-btn" data-action="go-home">&larr; Terug</button>
-      <h1>Spelers</h1>
-      <span></span>
-    </div>
     <div class="card">
       <h2>Nieuwe speler</h2>
       <form class="inline" data-form="add-player">
@@ -321,6 +652,24 @@ function renderPlayers() {
       ${rows || '<div class="empty-state">Nog geen spelers toegevoegd.</div>'}
     </div>
   `;
+}
+
+function renderSettingsCard(m) {
+  const s = matchSettings(m);
+  const rows = [
+    ['shotLocation', 'Schotlocatie vastleggen', 'Tik na elk schot van Valto op het veld waar het genomen werd (expected goals).'],
+    ['opponentShotLocation', 'Schotlocatie tegenstander', 'Zelfde, maar voor schoten van de tegenstander.'],
+    ['possession', 'Balbezit bijhouden', 'Twee knoppen om te wisselen wie in balbezit is; geeft balbezit-% per helft.'],
+  ].map(([key, title, hint]) => `
+    <label class="switch-row">
+      <input type="checkbox" data-action="toggle-setting" data-id="${key}" ${s[key] ? 'checked' : ''}>
+      <span class="switch-text"><strong>${title}</strong><span class="muted">${hint}</span></span>
+    </label>`).join('');
+  return `
+    <div class="card">
+      <h2>Extra's bijhouden</h2>
+      <div class="switch-list">${rows}</div>
+    </div>`;
 }
 
 function renderSetup(matchId) {
@@ -379,10 +728,11 @@ function renderSetup(matchId) {
       <h2>${escapeHtml(m.opponent || 'Onbekende tegenstander')} · ${formatDate(m.date)}</h2>
       <h3>Selecteer spelers (minimaal 8)</h3>
       <div class="checklist-grid">
-        ${squadCheckboxes || '<div class="empty-state">Voeg eerst spelers toe via "Spelers beheren".</div>'}
+        ${squadCheckboxes || '<div class="empty-state">Voeg eerst spelers toe via "Spelers" (tab Beheren).</div>'}
       </div>
       <p class="muted mt-8">${squadCount} geselecteerd</p>
     </div>
+    ${renderSettingsCard(m)}
     ${roleSection}
   `;
 }
@@ -394,6 +744,9 @@ function renderLive(matchId) {
   const st = computeMatchState(m.squad, m.initialLineup, m.events);
   const untilSwap = 2 - st.counter;
   const split = computeHalfSplit(m.squad, m.initialLineup, m.events);
+  const settings = matchSettings(m);
+  const poss = settings.possession ? computePossession(m) : null;
+  const possSide = settings.possession ? currentPossessionSide(m) : null;
 
   const attackerCards = st.attackers.map((id) => `
     <div class="player-card">
@@ -401,7 +754,7 @@ function renderLive(matchId) {
         <span class="avatar avatar-sm">${escapeHtml(initials(getPlayerName(id)))}</span>
         <div>
           <div class="name">${escapeHtml(getPlayerName(id))}</div>
-          ${statLine(id, st)}
+          ${statLine(id, st, settings.shotLocation)}
         </div>
       </div>
       <div class="actions">
@@ -416,7 +769,7 @@ function renderLive(matchId) {
         <span class="avatar avatar-sm">${escapeHtml(initials(getPlayerName(id)))}</span>
         <div>
           <div class="name">${escapeHtml(getPlayerName(id))}</div>
-          ${statLine(id, st)}
+          ${statLine(id, st, settings.shotLocation)}
         </div>
       </div>
     </div>`).join('');
@@ -435,17 +788,32 @@ function renderLive(matchId) {
     </div>
 
     <div class="scoreboard">
+      <div class="clock-row">
+        <span class="clock-half">${split.hasHalftime ? 'Helft 2' : 'Helft 1'}</span>
+        <span class="clock-time" data-clock="${m.id}">${formatClock(clockElapsed(m))}</span>
+        <button type="button" class="btn btn-sm clock-btn" data-action="clock-toggle">${clockRunning(m) ? 'Pauze' : 'Start'}</button>
+      </div>
       <div class="scoreboard-grid">
-        ${renderScoreboardSide('Valto', split.own, 'scoreboard-side-own')}
+        ${renderScoreboardSide('Valto', split.own, 'scoreboard-side-own', settings.shotLocation ? split.own.total.xg : null)}
         <div class="scoreboard-center">
           <div class="score-main">
             <span>${st.score.own}</span><span class="score-dash">-</span><span>${st.score.opponent}</span>
           </div>
         </div>
-        ${renderScoreboardSide('Tegenstander', split.opponent, 'scoreboard-side-opp')}
+        ${renderScoreboardSide('Tegenstander', split.opponent, 'scoreboard-side-opp', settings.opponentShotLocation ? split.opponent.total.xg : null)}
       </div>
       <div class="swap-progress">Nog ${untilSwap} doelpunt${untilSwap === 1 ? '' : 'en'} tot rolwissel</div>
     </div>
+
+    ${settings.possession ? `
+    <div class="possession">
+      <button type="button" class="poss-btn ${possSide === 'own' ? 'active-own' : ''}" data-action="possession" data-id="own">
+        <span>Valto in balbezit</span><strong data-poss="own" data-match="${m.id}">${possessionPct(poss.total) == null ? '–' : possessionPct(poss.total) + '%'}</strong>
+      </button>
+      <button type="button" class="poss-btn ${possSide === 'opp' ? 'active-opp' : ''}" data-action="possession" data-id="opp">
+        <span>Tegenstander in balbezit</span><strong data-poss="opp" data-match="${m.id}">${possessionPct(poss.total) == null ? '–' : (100 - possessionPct(poss.total)) + '%'}</strong>
+      </button>
+    </div>` : ''}
 
     <div class="live-grid">
       <div class="section section-attack">
@@ -473,6 +841,11 @@ function renderLive(matchId) {
       <button class="btn btn-block mt-8" data-action="open-sub-modal" ${subDisabled}>${ICONS.swap}Wissel speler</button>
     </div>
 
+    <div class="card">
+      <h2>Tijdlijn</h2>
+      ${renderTimeline(buildTimeline(m), true)}
+    </div>
+
     <div class="btn-row">
       <button class="btn" data-action="undo" ${undoDisabled}>Ongedaan maken</button>
       <button class="btn" data-action="halftime" ${halftimeDisabled}>Rust</button>
@@ -480,6 +853,8 @@ function renderLive(matchId) {
     </div>
 
     ${subModalOpen ? renderSubModal(st) : ''}
+    ${pendingShot ? renderShotModal() : ''}
+    ${m.inBreak ? renderBreakOverlay(m, split, poss, settings) : ''}
   `;
 }
 
@@ -515,6 +890,69 @@ function renderSubModal(st) {
     </div>`;
 }
 
+function renderShotModal() {
+  const own = pendingShot.kind === 'goal' || pendingShot.kind === 'miss';
+  const label = {
+    goal: 'Doelpunt', miss: 'Kans gemist', opponentGoal: 'Doelpunt tegenstander', opponentMiss: 'Kans tegenstander gemist',
+  }[pendingShot.kind];
+  const who = own ? getPlayerName(pendingShot.playerId) : 'Tegenstander';
+  return `
+    <div class="modal-overlay modal-center">
+      <div class="modal-sheet modal-wide">
+        <h2>${label} · ${escapeHtml(who)}</h2>
+        <p class="muted">Tik op het veld waar het schot genomen werd. De korf staat in het midden; de cijfers zijn de xG per zone.</p>
+        <div class="field-wrap">${renderFieldSvg({ interactive: true })}</div>
+        <div class="btn-row">
+          <button type="button" class="btn" data-action="cancel-shot">Annuleren</button>
+          <button type="button" class="btn" data-action="skip-shot">Zonder locatie</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderCompareTable(key, split, poss, settings) {
+  const o = split.own[key];
+  const t = split.opponent[key];
+  const row = (label, a, b) => `<tr><td>${label}</td><td>${a}</td><td>${b}</td></tr>`;
+  let rows = row('Doelpunten', o.goals, t.goals)
+    + row('Kansen', o.goals + o.misses, t.goals + t.misses)
+    + row('Schotpercentage', formatPct(o.goals, o.misses), formatPct(t.goals, t.misses));
+  if (settings.shotLocation || settings.opponentShotLocation) {
+    rows += row('xG',
+      settings.shotLocation && o.locShots > 0 ? formatXg(o.xg) : '–',
+      settings.opponentShotLocation && t.locShots > 0 ? formatXg(t.xg) : '–');
+  }
+  if (poss) rows += `<tr><td>Balbezit</td><td colspan="2" class="cell-center">${formatPossession(poss[key])}</td></tr>`;
+  return `
+    <table class="stats compare">
+      <thead><tr><th></th><th>Valto</th><th>Tegenstander</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderBreakOverlay(m, split, poss, settings) {
+  const rows = buildSplitStatsRows(m.squad, split.players, getPlayerName);
+  const subInfo = computeSubstitutionInfo(m.events);
+  const showXg = settings.shotLocation && split.hasOwnShotData;
+  return `
+    <div class="break-overlay">
+      <div class="break-sheet">
+        <div class="break-head">
+          <h2>Rust · eerste helft</h2>
+          <div class="score-main"><span>${split.own.half1.goals}</span><span class="vs">stand</span><span>${split.opponent.half1.goals}</span></div>
+          <div class="muted cell-center">Gespeelde tijd ${formatClock(clockElapsed(m))}</div>
+        </div>
+        <h3>Team</h3>
+        ${renderCompareTable('half1', split, poss, settings)}
+        <h3 class="mt-16">Spelers</h3>
+        <div class="table-scroll">${renderPlayerPeriodTable(rows, 'half1', subInfo, showXg)}</div>
+        <h3 class="mt-16">Tijdlijn</h3>
+        ${renderTimeline(buildTimeline(m), false)}
+        <button type="button" class="btn btn-primary btn-block mt-16" data-action="end-break">Tweede helft starten</button>
+      </div>
+    </div>`;
+}
+
 function computeSubstitutionInfo(events) {
   const info = {};
   events.forEach((ev) => {
@@ -527,7 +965,7 @@ function computeSubstitutionInfo(events) {
   return info;
 }
 
-function renderPlayerPeriodTable(rows, periodKey, subInfo) {
+function renderPlayerPeriodTable(rows, periodKey, subInfo, showXg) {
   const sorted = [...rows].sort((a, b) => b[periodKey].goals - a[periodKey].goals || a.name.localeCompare(b.name));
   const tableRows = sorted.map((r) => {
     const p = r[periodKey];
@@ -542,18 +980,20 @@ function renderPlayerPeriodTable(rows, periodKey, subInfo) {
       <td>${p.misses}</td>
       <td>${p.total}</td>
       <td>${p.pct}</td>
+      ${showXg ? `<td>${p.locShots > 0 ? formatXg(p.xg) : '–'}</td>` : ''}
     </tr>`;
   }).join('');
 
   return `
     <table class="stats">
-      <thead><tr><th>Speler</th><th>Gemaakt</th><th>Gemist</th><th>Totaal</th><th>%</th></tr></thead>
-      <tbody>${tableRows || '<tr><td colspan="5" class="empty-state">Geen spelers</td></tr>'}</tbody>
+      <thead><tr><th>Speler</th><th>Gemaakt</th><th>Gemist</th><th>Totaal</th><th>%</th>${showXg ? '<th>xG</th>' : ''}</tr></thead>
+      <tbody>${tableRows || `<tr><td colspan="${showXg ? 6 : 5}" class="empty-state">Geen spelers</td></tr>`}</tbody>
     </table>`;
 }
 
-function renderTeamLine(label, s) {
-  return `<div class="stat-line">${escapeHtml(label)}: ${s.goals}/${s.goals + s.misses} kansen · <span class="stat-pct">${formatPct(s.goals, s.misses)}</span></div>`;
+function renderTeamLine(label, s, showXg) {
+  const xg = showXg && s.locShots > 0 ? ` · xG ${formatXg(s.xg)}` : '';
+  return `<div class="stat-line">${escapeHtml(label)}: ${s.goals}/${s.goals + s.misses} kansen · <span class="stat-pct">${formatPct(s.goals, s.misses)}</span>${xg}</div>`;
 }
 
 function renderSummary(matchId) {
@@ -563,6 +1003,13 @@ function renderSummary(matchId) {
   const split = computeHalfSplit(m.squad, m.initialLineup, m.events);
   const rows = buildSplitStatsRows(m.squad, split.players, getPlayerName);
   const subInfo = computeSubstitutionInfo(m.events);
+  const settings = matchSettings(m);
+  const poss = settings.possession ? computePossession(m) : null;
+  const showOwnXg = split.hasOwnShotData;
+  const showOppXg = split.hasOppShotData;
+  const possLine = (key) => (poss ? `<div class="stat-line">Balbezit: <span class="stat-pct">${formatPossession(poss[key])}</span> <span class="muted">(Valto – Tegenstander)</span></div>` : '');
+
+  const oppRow = (label, s) => `<tr><td>${label}</td><td>${s.goals}</td><td>${s.misses}</td><td>${s.goals + s.misses}</td><td>${formatPct(s.goals, s.misses)}</td>${showOppXg ? `<td>${s.locShots > 0 ? formatXg(s.xg) : '–'}</td>` : ''}</tr>`;
 
   return `
     <div class="topbar">
@@ -577,32 +1024,40 @@ function renderSummary(matchId) {
 
     <div class="card">
       <h2>Totaal</h2>
-      ${renderTeamLine('Valto', split.own.total)}
-      <div class="table-scroll mt-8">${renderPlayerPeriodTable(rows, 'total', subInfo)}</div>
+      ${renderTeamLine('Valto', split.own.total, showOwnXg)}
+      ${possLine('total')}
+      <div class="table-scroll mt-8">${renderPlayerPeriodTable(rows, 'total', subInfo, showOwnXg)}</div>
     </div>
 
     <div class="card">
       <h2>Tegenstander</h2>
       <table class="stats">
-        <thead><tr><th></th><th>Gemaakt</th><th>Gemist</th><th>Totaal</th><th>%</th></tr></thead>
+        <thead><tr><th></th><th>Gemaakt</th><th>Gemist</th><th>Totaal</th><th>%</th>${showOppXg ? '<th>xG</th>' : ''}</tr></thead>
         <tbody>
-          <tr><td>Helft 1</td><td>${split.opponent.half1.goals}</td><td>${split.opponent.half1.misses}</td><td>${split.opponent.half1.goals + split.opponent.half1.misses}</td><td>${formatPct(split.opponent.half1.goals, split.opponent.half1.misses)}</td></tr>
-          <tr><td>Helft 2</td><td>${split.opponent.half2.goals}</td><td>${split.opponent.half2.misses}</td><td>${split.opponent.half2.goals + split.opponent.half2.misses}</td><td>${formatPct(split.opponent.half2.goals, split.opponent.half2.misses)}</td></tr>
-          <tr><td>Totaal</td><td>${split.opponent.total.goals}</td><td>${split.opponent.total.misses}</td><td>${split.opponent.total.goals + split.opponent.total.misses}</td><td>${formatPct(split.opponent.total.goals, split.opponent.total.misses)}</td></tr>
+          ${oppRow('Helft 1', split.opponent.half1)}
+          ${oppRow('Helft 2', split.opponent.half2)}
+          ${oppRow('Totaal', split.opponent.total)}
         </tbody>
       </table>
     </div>
 
     <div class="card">
       <h2>Helft 1</h2>
-      ${renderTeamLine('Valto', split.own.half1)}
-      <div class="table-scroll mt-8">${renderPlayerPeriodTable(rows, 'half1', subInfo)}</div>
+      ${renderTeamLine('Valto', split.own.half1, showOwnXg)}
+      ${possLine('half1')}
+      <div class="table-scroll mt-8">${renderPlayerPeriodTable(rows, 'half1', subInfo, showOwnXg)}</div>
     </div>
 
     <div class="card">
       <h2>Helft 2</h2>
-      ${renderTeamLine('Valto', split.own.half2)}
-      <div class="table-scroll mt-8">${renderPlayerPeriodTable(rows, 'half2', subInfo)}</div>
+      ${renderTeamLine('Valto', split.own.half2, showOwnXg)}
+      ${possLine('half2')}
+      <div class="table-scroll mt-8">${renderPlayerPeriodTable(rows, 'half2', subInfo, showOwnXg)}</div>
+    </div>
+
+    <div class="card">
+      <h2>Tijdlijn</h2>
+      ${renderTimeline(buildTimeline(m), false)}
     </div>
 
     <div class="btn-row">
@@ -673,6 +1128,8 @@ function startMatch(matchId) {
   if (!m) return;
   if (m.initialLineup.attackers.length !== 4 || m.initialLineup.defenders.length !== 4) return;
   m.status = 'live';
+  m.clock = { running: false, elapsedMs: 0, startedAt: null };
+  startClock(m);
   saveData();
   route = { name: 'live', matchId };
   render();
@@ -681,11 +1138,73 @@ function startMatch(matchId) {
 function registerEvent(partial) {
   const m = currentMatch();
   if (!m || m.status !== 'live') return;
-  m.events.push({ ...partial, ts: Date.now() });
+  pushEvent(m, partial);
   saveData();
   const st = computeMatchState(m.squad, m.initialLineup, m.events);
   if (st.lastEventWasSwap) showToast('Gewisseld! Aanval en verdediging wisselen van rol.');
-  if (partial.type === 'halftime') showToast('Rust! Tweede helft begint.');
+  render();
+}
+
+// Bij goals/kansen: eerst de schotlocatie vragen als die instelling aan staat.
+function requestShot(kind, playerId) {
+  const m = currentMatch();
+  if (!m || m.status !== 'live') return;
+  const s = matchSettings(m);
+  const own = kind === 'goal' || kind === 'miss';
+  if ((own && s.shotLocation) || (!own && s.opponentShotLocation)) {
+    pendingShot = { kind, playerId };
+    render();
+  } else {
+    registerEvent(playerId ? { type: kind, playerId } : { type: kind });
+  }
+}
+
+function completeShot(loc) {
+  if (!pendingShot) return;
+  const { kind, playerId } = pendingShot;
+  pendingShot = null;
+  const ev = playerId ? { type: kind, playerId } : { type: kind };
+  if (loc) ev.loc = loc;
+  registerEvent(ev);
+  if (loc) {
+    const m = currentMatch();
+    const st = computeMatchState(m.squad, m.initialLineup, m.events);
+    if (!st.lastEventWasSwap) showToast(`Schot vastgelegd · xG ${formatXg(xgForLoc(loc))}`);
+  }
+}
+
+function toggleClock() {
+  const m = currentMatch();
+  if (!m || m.status !== 'live') return;
+  if (clockRunning(m)) pauseClock(m); else startClock(m);
+  saveData();
+  render();
+}
+
+function setPossession(side) {
+  const m = currentMatch();
+  if (!m || m.status !== 'live') return;
+  if (currentPossessionSide(m) === side) return;
+  registerEvent({ type: 'possession', side });
+}
+
+function startBreak() {
+  const m = currentMatch();
+  if (!m || m.status !== 'live' || findHalftimeIndex(m.events) !== -1) return;
+  pauseClock(m);
+  pushEvent(m, { type: 'halftime' });
+  m.inBreak = true;
+  saveData();
+  render();
+}
+
+function endBreak() {
+  const m = currentMatch();
+  if (!m) return;
+  m.inBreak = false;
+  startClock(m);
+  saveData();
+  showToast('Tweede helft gestart');
   render();
 }
 
@@ -697,12 +1216,31 @@ function undoLastEvent() {
   render();
 }
 
+// Houdt klok en balbezit-percentages live bij zonder het hele scherm te hertekenen.
+function updateLiveTicks() {
+  const clocks = document.querySelectorAll('[data-clock]');
+  clocks.forEach((el) => {
+    const m = data.matches.find((x) => x.id === el.dataset.clock);
+    if (m) el.textContent = formatClock(clockElapsed(m));
+  });
+  document.querySelectorAll('[data-poss]').forEach((el) => {
+    const m = data.matches.find((x) => x.id === el.dataset.match);
+    if (!m) return;
+    const own = possessionPct(computePossession(m).total);
+    el.textContent = own == null ? '–' : `${el.dataset.poss === 'own' ? own : 100 - own}%`;
+  });
+}
+
+setInterval(updateLiveTicks, 500);
+
 function finishMatch(matchId) {
   const m = data.matches.find((x) => x.id === matchId);
   if (!m) return;
   if (!confirm('Weet je zeker dat je de wedstrijd wilt beëindigen?')) return;
   const st = computeMatchState(m.squad, m.initialLineup, m.events);
   m.finalScore = { own: st.score.own, opponent: st.score.opponent };
+  pauseClock(m);
+  m.inBreak = false;
   m.status = 'finished';
   saveData();
   route = { name: 'summary', matchId };
@@ -715,25 +1253,40 @@ function showToast(msg) {
   toastTimer = setTimeout(() => { toast = null; render(); }, 2200);
 }
 
-function doExportExcel(matchId) {
+function exportData(matchId) {
   const m = data.matches.find((x) => x.id === matchId);
-  if (!m) return;
+  if (!m) return null;
   const split = computeHalfSplit(m.squad, m.initialLineup, m.events);
   const rows = buildSplitStatsRows(m.squad, split.players, getPlayerName);
-  exportToExcel(m, rows, split);
+  const extras = {
+    showOwnXg: split.hasOwnShotData,
+    showOppXg: split.hasOppShotData,
+    poss: matchSettings(m).possession ? computePossession(m) : null,
+    timeline: buildTimeline(m),
+  };
+  return { m, split, rows, extras };
+}
+
+function doExportExcel(matchId) {
+  const d = exportData(matchId);
+  if (d) exportToExcel(d.m, d.rows, d.split, d.extras);
 }
 
 function doExportMarkdown(matchId) {
-  const m = data.matches.find((x) => x.id === matchId);
-  if (!m) return;
-  const split = computeHalfSplit(m.squad, m.initialLineup, m.events);
-  const rows = buildSplitStatsRows(m.squad, split.players, getPlayerName);
-  exportToMarkdown(m, rows, split);
+  const d = exportData(matchId);
+  if (d) exportToMarkdown(d.m, d.rows, d.split, d.extras);
 }
 
 // ---------------------------- Event delegatie ------------------------------
 
 function onClick(e) {
+  const fieldSvg = e.target.closest('svg[data-shotfield]');
+  if (fieldSvg) {
+    const loc = fieldPointFromEvent(fieldSvg, e);
+    if (loc) completeShot(loc);
+    return;
+  }
+
   const swipedWrap = e.target.closest('.swipe-wrap');
   const onDeleteButton = !!e.target.closest('.swipe-delete');
   if (swipedWrap && swipedWrap.dataset.suppressClick) {
@@ -748,7 +1301,22 @@ function onClick(e) {
 
   switch (action) {
     case 'go-home': route = { name: 'home' }; render(); break;
-    case 'go-players': route = { name: 'players' }; render(); break;
+    case 'go-players': route = { name: 'players', tab: 'stats', playerId: null }; render(); break;
+    case 'players-tab': route = { name: 'players', tab: id, playerId: null }; render(); break;
+    case 'stats-filter': statsFilter = id; render(); break;
+    case 'stats-sort': statsSort = id; render(); break;
+    case 'open-player': route = { name: 'players', tab: 'stats', playerId: id }; render(); break;
+    case 'close-player': route = { name: 'players', tab: 'stats', playerId: null }; render(); break;
+    case 'toggle-setting': {
+      const m = currentMatch();
+      if (m) { m.settings = { ...matchSettings(m), [id]: el.checked }; saveData(); render(); }
+      break;
+    }
+    case 'clock-toggle': toggleClock(); break;
+    case 'possession': setPossession(id); break;
+    case 'end-break': endBreak(); break;
+    case 'cancel-shot': pendingShot = null; render(); break;
+    case 'skip-shot': completeShot(null); break;
     case 'set-theme': setTheme(id); render(); break;
     case 'open-match': openMatch(id); break;
     case 'delete-match': deleteMatch(id); break;
@@ -764,11 +1332,11 @@ function onClick(e) {
       break;
     }
     case 'start-match': startMatch(id); break;
-    case 'goal': registerEvent({ type: 'goal', playerId: id }); break;
-    case 'miss': registerEvent({ type: 'miss', playerId: id }); break;
-    case 'opponent-goal': registerEvent({ type: 'opponentGoal' }); break;
-    case 'opponent-miss': registerEvent({ type: 'opponentMiss' }); break;
-    case 'halftime': registerEvent({ type: 'halftime' }); break;
+    case 'goal': requestShot('goal', id); break;
+    case 'miss': requestShot('miss', id); break;
+    case 'opponent-goal': requestShot('opponentGoal', null); break;
+    case 'opponent-miss': requestShot('opponentMiss', null); break;
+    case 'halftime': startBreak(); break;
     case 'undo': undoLastEvent(); break;
     case 'open-sub-modal': subModalOpen = true; render(); break;
     case 'close-sub-modal': subModalOpen = false; render(); break;
@@ -797,6 +1365,9 @@ function onSubmit(e) {
       initialLineup: { attackers: [], defenders: [] },
       events: [],
       finalScore: null,
+      settings: { ...DEFAULT_SETTINGS },
+      clock: { running: false, elapsedMs: 0, startedAt: null },
+      inBreak: false,
     };
     data.matches.push(match);
     saveData();
@@ -813,7 +1384,7 @@ function onSubmit(e) {
     const playerIn = form.elements.playerIn.value;
     const m = currentMatch();
     if (m && playerOut && playerIn && playerOut !== playerIn) {
-      m.events.push({ type: 'substitution', playerOut, playerIn, ts: Date.now() });
+      pushEvent(m, { type: 'substitution', playerOut, playerIn });
       saveData();
     }
     subModalOpen = false;
@@ -825,7 +1396,7 @@ function onSubmit(e) {
 // CSS :active is onbetrouwbaar op tablets (o.a. iPad Safari toont het vaak niet
 // zonder een touch-listener) — daarom sturen we de "ingedrukt"-status via JS.
 
-const PRESSABLE_SELECTOR = '.btn, .role-chip, .theme-swatch';
+const PRESSABLE_SELECTOR = '.btn, .role-chip, .theme-swatch, .poss-btn';
 
 function onPressStart(e) {
   const el = e.target.closest(PRESSABLE_SELECTOR);
