@@ -103,13 +103,20 @@ function renderFieldSvg(opts = {}) {
         const r = ring === 0 ? 78 : ring === 1 ? 182 : (RING_RADII[1] + rayExtent(mid)) / 2;
         const p = polar(mid, r);
         const v = XG_TABLE[ring][s];
+        const lab = opts.labelFn
+          ? opts.labelFn(ring, s)
+          : { text: formatXg(v), fill: xgColor(v) };
+        const two = !!lab.sub;
         const w = ring === 0 ? 70 : 104;
-        const h = ring === 0 ? 36 : 50;
+        const h = (ring === 0 ? 36 : 50) + (two ? (ring === 0 ? 14 : 20) : 0);
         const fs = ring === 0 ? 22 : 30;
+        const subFs = ring === 0 ? 14 : 19;
+        const textY = two ? p.y - h / 2 + fs * 0.95 + 2 : p.y + fs * 0.36;
         labels += `
           <g>
-            <rect x="${(p.x - w / 2).toFixed(1)}" y="${(p.y - h / 2).toFixed(1)}" width="${w}" height="${h}" rx="9" fill="${xgColor(v)}" opacity="0.92"/>
-            <text x="${p.x.toFixed(1)}" y="${(p.y + fs * 0.36).toFixed(1)}" text-anchor="middle" class="field-label" style="font-size:${fs}px">${formatXg(v)}</text>
+            <rect x="${(p.x - w / 2).toFixed(1)}" y="${(p.y - h / 2).toFixed(1)}" width="${w}" height="${h}" rx="9" fill="${lab.fill}" opacity="0.92"/>
+            <text x="${p.x.toFixed(1)}" y="${textY.toFixed(1)}" text-anchor="middle" class="field-label" style="font-size:${fs}px">${lab.text}</text>
+            ${two ? `<text x="${p.x.toFixed(1)}" y="${(textY + subFs + 4).toFixed(1)}" text-anchor="middle" class="field-label" style="font-size:${subFs}px;font-weight:600">${lab.sub}</text>` : ''}
           </g>`;
       }
     }
@@ -130,6 +137,25 @@ function renderFieldSvg(opts = {}) {
       <circle cx="${FIELD.bx}" cy="${FIELD.by}" r="16" class="field-basket"/>
       ${dots}
     </svg>`;
+}
+
+// Zone-heatmap: per zone het werkelijke scoringspercentage, gekleurd t.o.v. de verwachte xG.
+// zones: { 'ring-sector': { goals, misses } }
+function renderZoneHeatmap(zones) {
+  const labelFn = (ring, s) => {
+    const z = zones[`${ring}-${s}`];
+    const n = z ? z.goals + z.misses : 0;
+    if (n === 0) return { text: '–', fill: '#b9c4bf' };
+    const actual = z.goals / n;
+    const diff = actual - XG_TABLE[ring][s];
+    let fill = '#e6d62c';
+    if (diff > 0.1) fill = '#2e7d32';
+    else if (diff > 0.03) fill = '#7cb342';
+    else if (diff < -0.1) fill = '#d9363e';
+    else if (diff < -0.03) fill = '#f0a030';
+    return { text: `${Math.round(actual * 100)}%`, sub: `${z.goals}/${n}`, fill };
+  };
+  return renderFieldSvg({ labelFn });
 }
 
 function fieldPointFromEvent(svg, e) {

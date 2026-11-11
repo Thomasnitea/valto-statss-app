@@ -20,6 +20,7 @@ let subModalOpen = false;
 let pendingShot = null;
 let statsFilter = 'all';
 let statsSort = 'goals';
+let shotMapMode = 'dots';
 let toast = null;
 let toastTimer = null;
 
@@ -477,46 +478,128 @@ function renderPlayers() {
   `;
 }
 
+// ---------------------------- Spelers-dashboard ----------------------------
+
+const SHOT_RING_LABELS = ['Dichtbij', 'Midden', 'Ver'];
+
+function shortDate(iso) {
+  const d = new Date(`${iso}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'numeric' });
+}
+
+function fmtSigned(v) {
+  return `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(2).replace('.', ',')}`;
+}
+
+function pctNum(goals, misses) {
+  const n = goals + misses;
+  return n === 0 ? null : (goals / n) * 100;
+}
+
+function perGame(v, games) {
+  return games === 0 ? '–' : (v / games).toFixed(1).replace('.', ',');
+}
+
+function statsMatches() {
+  const finished = data.matches.filter((m) => m.status === 'finished')
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  let selected = finished;
+  if (statsFilter === 'last5') selected = finished.slice(-5);
+  else if (statsFilter !== 'all') selected = finished.filter((m) => m.id === statsFilter);
+  return { finished, selected };
+}
+
+function emptyAgg() {
+  return {
+    games: 0, goals: 0, misses: 0, xg: 0, locShots: 0, locGoals: 0,
+    h1: { goals: 0, misses: 0 }, h2: { goals: 0, misses: 0 },
+    rings: [{ goals: 0, misses: 0 }, { goals: 0, misses: 0 }, { goals: 0, misses: 0 }],
+    zones: {}, shots: [], perMatch: [],
+  };
+}
+
 function playerAggregates() {
-  const matches = data.matches.filter((m) => m.status === 'finished');
-  const selected = statsFilter === 'all' ? matches : matches.filter((m) => m.id === statsFilter);
+  const { finished, selected } = statsMatches();
   const agg = {};
   selected.forEach((m) => {
-    const st = computeMatchState(m.squad, m.initialLineup, m.events);
+    const split = computeHalfSplit(m.squad, m.initialLineup, m.events);
     m.squad.forEach((id) => {
-      const s = st.stats[id];
-      if (!s) return;
-      const a = agg[id] = agg[id] || { games: 0, goals: 0, misses: 0, xg: 0, locShots: 0, locGoals: 0, perMatch: [] };
+      const p = split.players[id];
+      if (!p) return;
+      const a = agg[id] = agg[id] || emptyAgg();
       a.games++;
-      a.goals += s.goals;
-      a.misses += s.misses;
-      a.xg += s.xg;
-      a.locShots += s.locShots;
-      a.locGoals += s.locGoals;
-      a.perMatch.push({ match: m, ...s });
+      a.goals += p.total.goals;
+      a.misses += p.total.misses;
+      a.xg += p.total.xg;
+      a.locShots += p.total.locShots;
+      a.locGoals += p.total.locGoals;
+      a.h1.goals += p.half1.goals;
+      a.h1.misses += p.half1.misses;
+      a.h2.goals += p.half2.goals;
+      a.h2.misses += p.half2.misses;
+      a.perMatch.push({ match: m, ...p.total });
+    });
+    m.events.forEach((ev) => {
+      if ((ev.type !== 'goal' && ev.type !== 'miss') || !ev.loc || !agg[ev.playerId]) return;
+      const a = agg[ev.playerId];
+      const z = zoneFromPoint(ev.loc.x, ev.loc.y);
+      const kind = ev.type === 'goal' ? 'goals' : 'misses';
+      const key = `${z.ring}-${z.sector}`;
+      a.zones[key] = a.zones[key] || { goals: 0, misses: 0 };
+      a.zones[key][kind]++;
+      a.rings[z.ring][kind]++;
+      a.shots.push({ loc: ev.loc, type: ev.type });
     });
   });
-  return { matches, selected, agg };
+
+  const team = { goals: 0, misses: 0, xg: 0, locShots: 0, locGoals: 0, playerGames: 0 };
+  Object.values(agg).forEach((a) => {
+    team.goals += a.goals;
+    team.misses += a.misses;
+    team.xg += a.xg;
+    team.locShots += a.locShots;
+    team.locGoals += a.locGoals;
+    team.playerGames += a.games;
+  });
+  return { finished, selected, agg, team };
+}
+
+function xgBadge(a) {
+  if (a.locShots === 0) return '';
+  const d = a.locGoals - a.xg;
+  return `<span class="xg-badge ${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'} ${fmtSigned(d)} xG</span>`;
+}
+
+function vsTeamBadge(a, team) {
+  const mine = pctNum(a.goals, a.misses);
+  const ref = pctNum(team.goals, team.misses);
+  if (mine == null || ref == null) return '';
+  const d = Math.round(mine - ref);
+  return `<span class="vs-team ${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '+' : '−'}${Math.abs(d)}% t.o.v. team</span>`;
 }
 
 function renderPlayerDashboard() {
-  const { matches, agg } = playerAggregates();
-  if (statsFilter !== 'all' && !matches.some((m) => m.id === statsFilter)) statsFilter = 'all';
+  const { finished, selected, agg, team } = playerAggregates();
+  if (finished.length === 0) {
+    return '<div class="card"><div class="empty-state">Nog geen afgeronde wedstrijden. Zodra je een wedstrijd beëindigt, verschijnen hier de spelerstatistieken.</div></div>';
+  }
+  if (!['all', 'last5'].includes(statsFilter) && !finished.some((m) => m.id === statsFilter)) statsFilter = 'all';
 
+  const chip = (id, label) => `<button type="button" class="chip ${statsFilter === id ? 'active' : ''}" data-action="stats-filter" data-id="${id}">${label}</button>`;
   const filterChips = [
-    `<button type="button" class="chip ${statsFilter === 'all' ? 'active' : ''}" data-action="stats-filter" data-id="all">Alle wedstrijden</button>`,
-    ...matches.sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((m) =>
-      `<button type="button" class="chip ${statsFilter === m.id ? 'active' : ''}" data-action="stats-filter" data-id="${m.id}">${formatDate(m.date)} · ${escapeHtml(m.opponent || 'Onbekend')}</button>`),
+    chip('all', 'Alle wedstrijden'),
+    finished.length > 1 ? chip('last5', 'Laatste 5') : '',
+    ...[...finished].reverse().map((m) => chip(m.id, `${formatDate(m.date)} · ${escapeHtml(m.opponent || 'Onbekend')}`)),
   ].join('');
 
-  const sorts = [['goals', 'Goals'], ['pct', 'Percentage'], ['attempts', 'Kansen'], ['xg', 'xG']];
+  const sorts = [['goals', 'Goals'], ['gpg', 'Goals/wed'], ['pct', 'Percentage'], ['attempts', 'Kansen'], ['xg', 'xG']];
   const sortChips = sorts.map(([key, label]) =>
     `<button type="button" class="chip ${statsSort === key ? 'active' : ''}" data-action="stats-sort" data-id="${key}">${label}</button>`).join('');
 
-  const pct = (a) => (a.goals + a.misses === 0 ? -1 : a.goals / (a.goals + a.misses));
   const sortKey = {
     goals: (a) => a.goals,
-    pct,
+    gpg: (a) => (a.games ? a.goals / a.games : 0),
+    pct: (a) => (a.goals + a.misses === 0 ? -1 : a.goals / (a.goals + a.misses)),
     attempts: (a) => a.goals + a.misses,
     xg: (a) => a.xg,
   }[statsSort];
@@ -524,13 +607,25 @@ function renderPlayerDashboard() {
   const ids = Object.keys(agg).filter((id) => getPlayer(id))
     .sort((x, y) => sortKey(agg[y]) - sortKey(agg[x]) || getPlayerName(x).localeCompare(getPlayerName(y)));
 
+  // Teamstrook
+  const top = [...ids].sort((x, y) => agg[y].goals - agg[x].goals)[0];
+  const finisherIds = ids.filter((id) => agg[id].locShots >= 1);
+  const finisher = [...finisherIds].sort((x, y) => (agg[y].locGoals - agg[y].xg) - (agg[x].locGoals - agg[x].xg))[0];
+  const teamTile = (num, lbl) => `<div class="tile"><span class="tile-num">${num}</span><span class="tile-lbl">${lbl}</span></div>`;
+  const strip = `
+    <div class="tiles tiles-auto">
+      ${teamTile(selected.length, selected.length === 1 ? 'Wedstrijd' : 'Wedstrijden')}
+      ${teamTile(team.goals, 'Goals')}
+      ${teamTile(formatPct(team.goals, team.misses), 'Schotpercentage')}
+      ${team.locShots > 0 ? teamTile(formatXg(team.xg), 'xG') : ''}
+      ${top && agg[top].goals > 0 ? teamTile(`${escapeHtml(getPlayerName(top))} <small>${agg[top].goals}</small>`, 'Topscorer') : ''}
+      ${finisher ? teamTile(`${escapeHtml(getPlayerName(finisher))} <small>${fmtSigned(agg[finisher].locGoals - agg[finisher].xg)}</small>`, 'Beste afwerker (xG)') : ''}
+    </div>`;
+
   const cards = ids.map((id) => {
     const a = agg[id];
     const attempts = a.goals + a.misses;
-    const p = attempts === 0 ? 0 : Math.round((a.goals / attempts) * 100);
-    const xgLine = a.locShots > 0
-      ? `<div class="pstat-xg">xG ${formatXg(a.xg)} · afronding <strong>${a.locGoals - a.xg >= 0 ? '+' : ''}${(a.locGoals - a.xg).toFixed(2).replace('.', ',')}</strong></div>`
-      : '';
+    const goalsPerMatch = a.perMatch.map((r) => r.goals);
     return `
       <div class="pstat-card" data-action="open-player" data-id="${id}">
         <div class="pstat-head">
@@ -539,32 +634,29 @@ function renderPlayerDashboard() {
             <div class="name">${escapeHtml(getPlayerName(id))}</div>
             <div class="meta">${a.games} wedstrijd${a.games === 1 ? '' : 'en'}</div>
           </div>
-          <div class="pstat-pct">${formatPct(a.goals, a.misses)}</div>
+          ${chartDonut(pctNum(a.goals, a.misses), 66)}
         </div>
-        <div class="pstat-bar"><span style="width:${p}%"></span></div>
         <div class="pstat-grid">
           <div><span class="pstat-num">${a.goals}</span><span class="pstat-lbl">Goals</span></div>
-          <div><span class="pstat-num">${attempts}</span><span class="pstat-lbl">Kansen</span></div>
-          <div><span class="pstat-num">${a.misses}</span><span class="pstat-lbl">Gemist</span></div>
+          <div><span class="pstat-num">${perGame(a.goals, a.games)}</span><span class="pstat-lbl">Goals/wed</span></div>
+          <div><span class="pstat-num">${perGame(attempts, a.games)}</span><span class="pstat-lbl">Kansen/wed</span></div>
           <div><span class="pstat-num">${a.locShots > 0 ? formatXg(a.xg) : '–'}</span><span class="pstat-lbl">xG</span></div>
         </div>
-        ${xgLine}
+        <div class="pstat-badges">${xgBadge(a)}${selected.length > 0 && ids.length > 1 ? vsTeamBadge(a, team) : ''}</div>
+        ${a.games >= 2 ? `<div class="pstat-spark">${chartSpark(goalsPerMatch)}<span class="muted">Goals per wedstrijd</span></div>` : ''}
       </div>`;
   }).join('');
 
-  if (matches.length === 0) {
-    return '<div class="card"><div class="empty-state">Nog geen afgeronde wedstrijden. Zodra je een wedstrijd beëindigt, verschijnen hier de spelerstatistieken.</div></div>';
-  }
-
   return `
     <div class="chip-row">${filterChips}</div>
+    ${strip}
     <div class="chip-row chip-row-sort"><span class="muted">Sorteer op</span>${sortChips}</div>
     <div class="pstat-grid-wrap">${cards || '<div class="empty-state">Geen spelergegevens voor deze selectie.</div>'}</div>
   `;
 }
 
 function renderPlayerDetail(playerId) {
-  const { agg, selected } = playerAggregates();
+  const { agg, team } = playerAggregates();
   const a = agg[playerId];
   const name = getPlayerName(playerId);
   const back = `
@@ -576,52 +668,99 @@ function renderPlayerDetail(playerId) {
   if (!a) return `${back}<div class="card"><div class="empty-state">Geen gegevens voor deze speler in de gekozen selectie.</div></div>`;
 
   const attempts = a.goals + a.misses;
+  const pct = pctNum(a.goals, a.misses);
+  const tile = (num, lbl, extra) => `<div class="tile"><span class="tile-num">${num}</span><span class="tile-lbl">${lbl}</span>${extra || ''}</div>`;
+  const diff = a.locGoals - a.xg;
   const tiles = `
-    <div class="tiles">
-      <div class="tile"><span class="tile-num">${formatPct(a.goals, a.misses)}</span><span class="tile-lbl">Percentage</span></div>
-      <div class="tile"><span class="tile-num">${a.goals}</span><span class="tile-lbl">Goals</span></div>
-      <div class="tile"><span class="tile-num">${attempts}</span><span class="tile-lbl">Kansen</span></div>
-      <div class="tile"><span class="tile-num">${a.locShots > 0 ? formatXg(a.xg) : '–'}</span><span class="tile-lbl">xG</span></div>
+    <div class="tiles tiles-auto">
+      <div class="tile tile-donut">${chartDonut(pct, 84)}<span class="tile-lbl">Schotpercentage</span>${vsTeamBadge(a, team)}</div>
+      ${tile(a.goals, 'Goals')}
+      ${tile(perGame(a.goals, a.games), 'Goals/wedstrijd')}
+      ${tile(perGame(attempts, a.games), 'Kansen/wedstrijd')}
+      ${tile(a.locShots > 0 ? formatXg(a.xg) : '–', 'xG')}
+      ${tile(a.locShots > 0 ? `<span class="${diff >= 0 ? 'pos' : 'neg'}">${fmtSigned(diff)}</span>` : '–', 'Goals − xG')}
     </div>`;
 
-  const rows = a.perMatch.sort((x, y) => (y.match.date || '').localeCompare(x.match.date || '')).map((r) => `
-    <tr>
+  const matchesAsc = [...a.perMatch].sort((x, y) => (x.match.date || '').localeCompare(y.match.date || ''));
+
+  const barsCard = `
+    <div class="card">
+      <h2>Goals per wedstrijd</h2>
+      ${chartBarsXg(matchesAsc.map((r) => ({ label: shortDate(r.match.date), value: r.goals, marker: r.locShots > 0 ? r.xg : null })))}
+      <div class="legend"><span class="lg-bar"></span> Goals ${a.locShots > 0 ? '<span class="lg-dot"></span> xG (verwacht)' : ''}</div>
+    </div>`;
+
+  const lineCard = `
+    <div class="card">
+      <h2>Schotpercentage per wedstrijd</h2>
+      ${matchesAsc.length >= 2
+    ? chartLine(matchesAsc.map((r) => ({ label: shortDate(r.match.date), value: pctNum(r.goals, r.misses) })), pct)
+    : '<div class="empty-state">Vanaf twee wedstrijden zie je hier het verloop.</div>'}
+    </div>`;
+
+  const halvesCard = `
+    <div class="card">
+      <h2>Helft 1 versus helft 2</h2>
+      ${chartStackRow('Helft 1', a.h1.goals, a.h1.misses)}
+      ${chartStackRow('Helft 2', a.h2.goals, a.h2.misses)}
+      <p class="muted mt-8">Aandeel gemaakt van alle kansen. Zo zie je wie sterk start of juist sterk eindigt.</p>
+    </div>`;
+
+  const hasRings = a.rings.some((r) => r.goals + r.misses > 0);
+  const ringsCard = `
+    <div class="card">
+      <h2>Percentage per afstand</h2>
+      ${hasRings
+    ? a.rings.map((r, i) => chartStackRow(SHOT_RING_LABELS[i], r.goals, r.misses)).join('')
+    : '<div class="empty-state">Alleen beschikbaar als schotlocaties zijn vastgelegd.</div>'}
+    </div>`;
+
+  const modeChips = `
+    <div class="chip-row">
+      <button type="button" class="chip ${shotMapMode === 'dots' ? 'active' : ''}" data-action="shotmap-mode" data-id="dots">Schoten</button>
+      <button type="button" class="chip ${shotMapMode === 'zones' ? 'active' : ''}" data-action="shotmap-mode" data-id="zones">Zones</button>
+    </div>`;
+  const mapCard = a.shots.length > 0 ? `
+    <div class="card">
+      <h2>Schotkaart</h2>
+      ${modeChips}
+      <p class="muted">${shotMapMode === 'dots'
+    ? `Groen = goal, rood = gemist (${a.shots.length} schot${a.shots.length === 1 ? '' : 'ten'} met locatie).`
+    : 'Per zone: werkelijk percentage en gemaakt/schoten. Groen = beter dan de verwachte xG, rood = slechter, grijs = geen schoten.'}</p>
+      <div class="field-wrap">${shotMapMode === 'dots' ? renderFieldSvg({ labels: false, shots: a.shots }) : renderZoneHeatmap(a.zones)}</div>
+    </div>` : '';
+
+  const rows = [...matchesAsc].reverse().map((r) => {
+    const d = r.locGoals - r.xg;
+    const chip = r.locShots > 0 ? `<span class="xg-badge ${d >= 0 ? 'up' : 'down'}">${fmtSigned(d)}</span>` : '–';
+    return `
+    <tr class="row-link" data-action="open-match" data-id="${r.match.id}">
       <td>${formatDate(r.match.date)}</td>
       <td>${escapeHtml(r.match.opponent || 'Onbekend')}</td>
       <td>${r.goals}</td>
       <td>${r.goals + r.misses}</td>
       <td>${formatPct(r.goals, r.misses)}</td>
       <td>${r.locShots > 0 ? formatXg(r.xg) : '–'}</td>
-    </tr>`).join('');
-
-  const shots = [];
-  selected.forEach((m) => {
-    m.events.forEach((ev) => {
-      if ((ev.type === 'goal' || ev.type === 'miss') && ev.playerId === playerId && ev.loc) {
-        shots.push({ loc: ev.loc, type: ev.type });
-      }
-    });
-  });
-  const shotMap = shots.length > 0 ? `
-    <div class="card">
-      <h2>Schotkaart</h2>
-      <p class="muted">Groen = goal, rood = gemist (${shots.length} schot${shots.length === 1 ? '' : 'ten'} met locatie).</p>
-      <div class="field-wrap">${renderFieldSvg({ labels: false, shots })}</div>
-    </div>` : '';
+      <td>${chip}</td>
+    </tr>`;
+  }).join('');
 
   return `
     ${back}
     ${tiles}
+    ${barsCard}
+    ${lineCard}
+    <div class="detail-two">${halvesCard}${ringsCard}</div>
+    ${mapCard}
     <div class="card">
       <h2>Per wedstrijd</h2>
       <div class="table-scroll">
         <table class="stats">
-          <thead><tr><th>Datum</th><th>Tegenstander</th><th>Goals</th><th>Kansen</th><th>%</th><th>xG</th></tr></thead>
+          <thead><tr><th>Datum</th><th>Tegenstander</th><th>Goals</th><th>Kansen</th><th>%</th><th>xG</th><th>+/− xG</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
     </div>
-    ${shotMap}
   `;
 }
 
@@ -1305,6 +1444,7 @@ function onClick(e) {
     case 'players-tab': route = { name: 'players', tab: id, playerId: null }; render(); break;
     case 'stats-filter': statsFilter = id; render(); break;
     case 'stats-sort': statsSort = id; render(); break;
+    case 'shotmap-mode': shotMapMode = id; render(); break;
     case 'open-player': route = { name: 'players', tab: 'stats', playerId: id }; render(); break;
     case 'close-player': route = { name: 'players', tab: 'stats', playerId: null }; render(); break;
     case 'toggle-setting': {
