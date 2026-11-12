@@ -319,10 +319,10 @@ function buildTimeline(m) {
   m.events.forEach((ev) => {
     if (ev.type === 'goal') {
       own++;
-      items.push({ kind: 'goal', t: ev.t, label: getPlayerName(ev.playerId), own, opp, xg: xgForEvent(ev) });
+      items.push({ kind: 'goal', t: ev.t, label: getPlayerName(ev.playerId), own, opp, xg: xgForEvent(ev), special: ev.special });
     } else if (ev.type === 'opponentGoal') {
       opp++;
-      items.push({ kind: 'opponentGoal', t: ev.t, label: 'Tegenstander', own, opp, xg: xgForEvent(ev) });
+      items.push({ kind: 'opponentGoal', t: ev.t, label: 'Tegenstander', own, opp, xg: xgForEvent(ev), special: ev.special });
     } else if (ev.type === 'halftime') {
       items.push({ kind: 'halftime', t: ev.t, label: 'Rust', own, opp });
     } else if (ev.type === 'substitution') {
@@ -344,7 +344,7 @@ function renderTimeline(items, newestFirst) {
       return `<div class="tl-row tl-sub"><span class="tl-time">${time}</span><span class="tl-text">Wissel: ${escapeHtml(it.label)}</span></div>`;
     }
     const mine = it.kind === 'goal';
-    const xg = it.xg != null ? ` <span class="tl-xg">xG ${formatXg(it.xg)}</span>` : '';
+    const xg = it.xg != null ? ` <span class="tl-xg">${it.special ? SPECIAL_SHOTS[it.special].label + ' · ' : ''}xG ${formatXg(it.xg)}</span>` : '';
     return `<div class="tl-row ${mine ? 'tl-own' : 'tl-opp'}"><span class="tl-time">${time}</span><span class="tl-dot"></span><span class="tl-text">Doelpunt ${escapeHtml(it.label)}${xg}</span><span class="tl-score">${it.own}-${it.opp}</span></div>`;
   }).join('')}</div>`;
 }
@@ -1032,6 +1032,10 @@ function renderShotModal() {
         <h2>${label} · ${escapeHtml(who)}</h2>
         <p class="muted">Tik op het veld waar de kans genomen werd. De korf staat in het midden; de cijfers zijn de xG per zone.</p>
         <div class="field-wrap">${renderFieldSvg({ interactive: true })}</div>
+        <div class="btn-row special-row">
+          <button type="button" class="btn btn-special" data-action="special-shot" data-id="penalty">Strafworp<small>xG ${formatXg(SPECIAL_SHOTS.penalty.xg)}</small></button>
+          <button type="button" class="btn btn-special" data-action="special-shot" data-id="free">Vrije bal<small>xG ${formatXg(SPECIAL_SHOTS.free.xg)}</small></button>
+        </div>
         <div class="btn-row">
           <button type="button" class="btn" data-action="cancel-shot">Annuleren</button>
           <button type="button" class="btn" data-action="skip-shot">Zonder locatie</button>
@@ -1289,17 +1293,20 @@ function requestShot(kind, playerId) {
   }
 }
 
-function completeShot(loc) {
+// loc = punt op het veld, special = 'penalty' | 'free' (vaste xG, geen plek)
+function completeShot(loc, special) {
   if (!pendingShot) return;
   const { kind, playerId } = pendingShot;
   pendingShot = null;
   const ev = playerId ? { type: kind, playerId } : { type: kind };
   if (loc) ev.loc = loc;
+  if (special && SPECIAL_SHOTS[special]) ev.special = special;
   registerEvent(ev);
-  if (loc) {
+  if (loc || ev.special) {
     const m = currentMatch();
     const st = computeMatchState(m.squad, m.initialLineup, m.events);
-    if (!st.lastEventWasSwap) showToast(`Kans vastgelegd · xG ${formatXg(xgForLoc(loc))}`);
+    const name = ev.special ? `${SPECIAL_SHOTS[ev.special].label} vastgelegd` : 'Kans vastgelegd';
+    if (!st.lastEventWasSwap) showToast(`${name} · xG ${formatXg(xgForEvent(ev))}`);
   }
 }
 
@@ -1447,6 +1454,7 @@ function onClick(e) {
     case 'end-break': endBreak(); break;
     case 'cancel-shot': pendingShot = null; render(); break;
     case 'skip-shot': completeShot(null); break;
+    case 'special-shot': completeShot(null, id); break;
     case 'set-theme': setTheme(id); render(); break;
     case 'open-match': openMatch(id); break;
     case 'delete-match': deleteMatch(id); break;

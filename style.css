@@ -740,3 +740,8 @@ tr.row-link:active { background: var(--bench); }
 .ch-val-shots { fill: var(--muted); font-weight: 600; }
 .lg-bar-shots { background: var(--attack-border); margin-left: 8px; }
 .ch-xg-val { font-size: 12px; font-weight: 700; fill: var(--danger); }
+
+/* Strafworp / vrije bal onder het veld */
+.special-row { margin-top: 12px; }
+.btn-special { flex-direction: column; gap: 2px; font-weight: 700; }
+.btn-special small { font-size: 0.8rem; font-weight: 600; opacity: 0.75; }

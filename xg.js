@@ -49,7 +49,14 @@ function xgForLoc(loc) {
   return XG_TABLE[z.ring][z.sector];
 }
 
+// Vaste xG voor kansen zonder plek op het veld: strafworp en vrije bal.
+const SPECIAL_SHOTS = {
+  penalty: { label: 'Strafworp', xg: 0.8 },
+  free: { label: 'Vrije bal', xg: 0.33 },
+};
+
 function xgForEvent(ev) {
+  if (ev.special && SPECIAL_SHOTS[ev.special]) return SPECIAL_SHOTS[ev.special].xg;
   return xgForLoc(ev.loc);
 }
 
