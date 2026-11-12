@@ -678,7 +678,7 @@ function renderPlayerDetail(playerId) {
     <div class="card">
       <h2>Goals en kansen per wedstrijd</h2>
       ${chartBarsXg(matchesAsc.map((r) => ({ label: shortDate(r.match.date), value: r.goals, shots: r.goals + r.misses, marker: r.locShots > 0 ? r.xg : null })))}
-      <div class="legend"><span class="lg-bar"></span> Goals <span class="lg-bar lg-bar-shots"></span> Kansen ${a.locShots > 0 ? '<span class="lg-dot"></span> xG (verwacht)' : ''}</div>
+      <div class="legend"><span class="lg-bar"></span> Goals <span class="lg-bar lg-bar-shots"></span> Kansen ${a.locShots > 0 ? '<span class="lg-dot"></span> xG (verwacht, waarde naast de stip)' : ''}</div>
     </div>`;
 
   const lineCard = `

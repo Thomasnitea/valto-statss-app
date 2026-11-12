@@ -739,3 +739,4 @@ tr.row-link:active { background: var(--bench); }
 .ch-bar-shots { fill: var(--attack-border); }
 .ch-val-shots { fill: var(--muted); font-weight: 600; }
 .lg-bar-shots { background: var(--attack-border); margin-left: 8px; }
+.ch-xg-val { font-size: 12px; font-weight: 700; fill: var(--danger); }

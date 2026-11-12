@@ -48,7 +48,8 @@ function chartBarsXg(items) {
     const gy = y(it.value);
     const sy = y(it.shots || 0);
     const marker = it.marker != null
-      ? `<circle cx="${(goalsX + bw / 2).toFixed(1)}" cy="${y(it.marker).toFixed(1)}" r="7" class="ch-marker"/>`
+      ? `<circle cx="${(goalsX + bw / 2).toFixed(1)}" cy="${y(it.marker).toFixed(1)}" r="7" class="ch-marker"/>
+         <text x="${(goalsX - 5).toFixed(1)}" y="${(y(it.marker) + 4).toFixed(1)}" text-anchor="end" class="ch-xg-val">${formatXg(it.marker)}</text>`
       : '';
     const label = i % step === 0 ? `<text x="${cx.toFixed(1)}" y="${H - 12}" text-anchor="middle" class="ch-axis">${it.label}</text>` : '';
     return `
