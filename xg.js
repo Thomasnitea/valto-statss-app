@@ -1,8 +1,8 @@
 // Schotlocatie en expected goals (xG).
 // Het veld wordt getekend in een vaste coördinatenruimte (viewBox) met de korf op (bx, by).
-// Een schot is een punt {x, y} in die ruimte; de zone (ring + sector) en de xG volgen daaruit.
+// Een kans is een punt {x, y} in die ruimte; de zone (ring + sector) en de xG volgen daaruit.
 // Locaties worden opgeslagen, de zone/xG wordt telkens berekend: aanpassingen aan de
-// tabel hieronder werken dus ook terugwerkend voor al vastgelegde schoten.
+// tabel hieronder werken dus ook terugwerkend voor al vastgelegde kansen.
 
 const FIELD = { w: 945, h: 995, bx: 505, by: 320 };
 

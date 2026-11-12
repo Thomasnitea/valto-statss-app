@@ -16,7 +16,7 @@ function chartDonut(pct, size) {
 }
 
 
-// items: [{ label, value (goals), shots (schoten), marker (xG of null) }]
+// items: [{ label, value (goals), shots (kansen), marker (xG of null) }]
 function chartBarsXg(items) {
   const W = 600;
   const H = 230;
@@ -59,7 +59,7 @@ function chartBarsXg(items) {
       ${marker}${label}`;
   }).join('');
 
-  return `<svg class="ch-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Goals en schoten per wedstrijd">${grid}${bars}</svg>`;
+  return `<svg class="ch-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Goals en kansen per wedstrijd">${grid}${bars}</svg>`;
 }
 
 // points: [{ label, value (0-100) of null }], avg: gemiddelde % (of null)

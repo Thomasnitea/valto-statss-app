@@ -608,7 +608,7 @@ function renderPlayerDashboard() {
     <div class="tiles tiles-auto">
       ${teamTile(selected.length, selected.length === 1 ? 'Wedstrijd' : 'Wedstrijden')}
       ${teamTile(team.goals, 'Goals')}
-      ${teamTile(team.goals + team.misses, 'Schoten')}
+      ${teamTile(team.goals + team.misses, 'Kansen')}
       ${teamTile(formatPct(team.goals, team.misses), 'Schotpercentage')}
       ${team.locShots > 0 ? teamTile(formatXg(team.xg), 'xG') : ''}
       ${team.locShots > 0 ? teamTile(`<span class="${teamDiff >= 0 ? 'pos' : 'neg'}">${fmtSigned(teamDiff)}</span>`, teamDiff >= 0 ? 'Over xG' : 'Onder xG') : ''}
@@ -629,10 +629,10 @@ function renderPlayerDashboard() {
         </div>
         <div class="pstat-grid">
           <div><span class="pstat-num">${a.goals}</span><span class="pstat-lbl">Goals</span></div>
-          <div><span class="pstat-num">${attempts}</span><span class="pstat-lbl">Schoten</span></div>
+          <div><span class="pstat-num">${attempts}</span><span class="pstat-lbl">Kansen</span></div>
           <div><span class="pstat-num">${a.locShots > 0 ? formatXg(a.xg) : '–'}</span><span class="pstat-lbl">xG</span></div>
           <div><span class="pstat-num">${perGame(a.goals, a.games)}</span><span class="pstat-lbl">Goals/wed</span></div>
-          <div><span class="pstat-num">${perGame(attempts, a.games)}</span><span class="pstat-lbl">Schoten/wed</span></div>
+          <div><span class="pstat-num">${perGame(attempts, a.games)}</span><span class="pstat-lbl">Kansen/wed</span></div>
         </div>
         <div class="pstat-badges">${xgBadge(a)}${selected.length > 0 && ids.length > 1 ? vsTeamBadge(a, team) : ''}</div>
       </div>`;
@@ -665,9 +665,9 @@ function renderPlayerDetail(playerId) {
     <div class="tiles tiles-auto">
       <div class="tile tile-donut">${chartDonut(pct, 84)}<span class="tile-lbl">Schotpercentage</span>${vsTeamBadge(a, team)}</div>
       ${tile(a.goals, 'Goals')}
-      ${tile(attempts, 'Schoten')}
+      ${tile(attempts, 'Kansen')}
       ${tile(perGame(a.goals, a.games), 'Goals/wedstrijd')}
-      ${tile(perGame(attempts, a.games), 'Schoten/wedstrijd')}
+      ${tile(perGame(attempts, a.games), 'Kansen/wedstrijd')}
       ${tile(a.locShots > 0 ? formatXg(a.xg) : '–', 'xG')}
       ${tile(a.locShots > 0 ? `<span class="${diff >= 0 ? 'pos' : 'neg'}">${fmtSigned(diff)}</span>` : '–', 'Goals − xG')}
     </div>`;
@@ -676,9 +676,9 @@ function renderPlayerDetail(playerId) {
 
   const barsCard = `
     <div class="card">
-      <h2>Goals en schoten per wedstrijd</h2>
+      <h2>Goals en kansen per wedstrijd</h2>
       ${chartBarsXg(matchesAsc.map((r) => ({ label: shortDate(r.match.date), value: r.goals, shots: r.goals + r.misses, marker: r.locShots > 0 ? r.xg : null })))}
-      <div class="legend"><span class="lg-bar"></span> Goals <span class="lg-bar lg-bar-shots"></span> Schoten ${a.locShots > 0 ? '<span class="lg-dot"></span> xG (verwacht)' : ''}</div>
+      <div class="legend"><span class="lg-bar"></span> Goals <span class="lg-bar lg-bar-shots"></span> Kansen ${a.locShots > 0 ? '<span class="lg-dot"></span> xG (verwacht)' : ''}</div>
     </div>`;
 
   const lineCard = `
@@ -708,7 +708,7 @@ function renderPlayerDetail(playerId) {
 
   const modeChips = `
     <div class="chip-row">
-      <button type="button" class="chip ${shotMapMode === 'dots' ? 'active' : ''}" data-action="shotmap-mode" data-id="dots">Schoten</button>
+      <button type="button" class="chip ${shotMapMode === 'dots' ? 'active' : ''}" data-action="shotmap-mode" data-id="dots">Kansen</button>
       <button type="button" class="chip ${shotMapMode === 'zones' ? 'active' : ''}" data-action="shotmap-mode" data-id="zones">Zones</button>
     </div>`;
   const mapCard = a.shots.length > 0 ? `
@@ -716,8 +716,8 @@ function renderPlayerDetail(playerId) {
       <h2>Schotkaart</h2>
       ${modeChips}
       <p class="muted">${shotMapMode === 'dots'
-    ? `Groen = goal, rood = gemist (${a.shots.length} schot${a.shots.length === 1 ? '' : 'ten'} met locatie).`
-    : 'Per zone: werkelijk percentage en gemaakt/schoten. Groen = beter dan de verwachte xG, rood = slechter, grijs = geen schoten.'}</p>
+    ? `Groen = goal, rood = gemist (${a.shots.length} kans${a.shots.length === 1 ? '' : 'sen'} met locatie).`
+    : 'Per zone: werkelijk percentage en gemaakt/kansen. Groen = beter dan de verwachte xG, rood = slechter, grijs = geen kansen.'}</p>
       <div class="field-wrap">${shotMapMode === 'dots' ? renderFieldSvg({ labels: false, shots: a.shots }) : renderZoneHeatmap(a.zones)}</div>
     </div>` : '';
 
@@ -747,7 +747,7 @@ function renderPlayerDetail(playerId) {
       <h2>Per wedstrijd</h2>
       <div class="table-scroll">
         <table class="stats">
-          <thead><tr><th>Datum</th><th>Tegenstander</th><th>Goals</th><th>Schoten</th><th>%</th><th>xG</th><th>+/− xG</th></tr></thead>
+          <thead><tr><th>Datum</th><th>Tegenstander</th><th>Goals</th><th>Kansen</th><th>%</th><th>xG</th><th>+/− xG</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -787,8 +787,8 @@ function renderPlayersManage() {
 function renderSettingsCard(m) {
   const s = matchSettings(m);
   const rows = [
-    ['shotLocation', 'Schotlocatie vastleggen', 'Tik na elk schot van Valto op het veld waar het genomen werd (expected goals).'],
-    ['opponentShotLocation', 'Schotlocatie tegenstander', 'Zelfde, maar voor schoten van de tegenstander.'],
+    ['shotLocation', 'Schotlocatie vastleggen', 'Tik na elke kans van Valto op het veld waar die genomen werd (expected goals).'],
+    ['opponentShotLocation', 'Schotlocatie tegenstander', 'Zelfde, maar voor kansen van de tegenstander.'],
     ['possession', 'Balbezit bijhouden', 'Twee knoppen om te wisselen wie in balbezit is; geeft balbezit-% per helft.'],
   ].map(([key, title, hint]) => `
     <label class="switch-row">
@@ -1030,7 +1030,7 @@ function renderShotModal() {
     <div class="modal-overlay modal-center">
       <div class="modal-sheet modal-wide">
         <h2>${label} · ${escapeHtml(who)}</h2>
-        <p class="muted">Tik op het veld waar het schot genomen werd. De korf staat in het midden; de cijfers zijn de xG per zone.</p>
+        <p class="muted">Tik op het veld waar de kans genomen werd. De korf staat in het midden; de cijfers zijn de xG per zone.</p>
         <div class="field-wrap">${renderFieldSvg({ interactive: true })}</div>
         <div class="btn-row">
           <button type="button" class="btn" data-action="cancel-shot">Annuleren</button>
@@ -1299,7 +1299,7 @@ function completeShot(loc) {
   if (loc) {
     const m = currentMatch();
     const st = computeMatchState(m.squad, m.initialLineup, m.events);
-    if (!st.lastEventWasSwap) showToast(`Schot vastgelegd · xG ${formatXg(xgForLoc(loc))}`);
+    if (!st.lastEventWasSwap) showToast(`Kans vastgelegd · xG ${formatXg(xgForLoc(loc))}`);
   }
 }
 
