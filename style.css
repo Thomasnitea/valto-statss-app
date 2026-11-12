@@ -669,7 +669,7 @@ table.stats.compare td:not(:first-child), table.stats.compare th:not(:first-chil
 .pstat-pct { font-size: 1.6rem; font-weight: 800; color: var(--primary); }
 .pstat-bar { height: 8px; border-radius: 999px; background: var(--bench); overflow: hidden; margin-bottom: 12px; }
 .pstat-bar span { display: block; height: 100%; background: var(--primary); border-radius: 999px; }
-.pstat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; text-align: center; }
+.pstat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 6px; text-align: center; }
 .pstat-num { display: block; font-size: 1.25rem; font-weight: 800; }
 .pstat-lbl { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; }
 .pstat-xg { margin-top: 10px; font-size: 0.85rem; color: var(--muted); text-align: center; }
@@ -735,3 +735,7 @@ tr.row-link:active { background: var(--bench); }
 
 .filter-select { width: auto; min-width: 190px; flex-shrink: 0; border: 2px solid var(--border); background: var(--card); color: var(--text); border-radius: 999px; padding: 8px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
 .filter-select.active { border-color: var(--primary); background: var(--primary-light); color: var(--primary-dark); }
+
+.ch-bar-shots { fill: var(--attack-border); }
+.ch-val-shots { fill: var(--muted); font-weight: 600; }
+.lg-bar-shots { background: var(--attack-border); margin-left: 8px; }

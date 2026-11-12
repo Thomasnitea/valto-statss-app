@@ -608,6 +608,7 @@ function renderPlayerDashboard() {
     <div class="tiles tiles-auto">
       ${teamTile(selected.length, selected.length === 1 ? 'Wedstrijd' : 'Wedstrijden')}
       ${teamTile(team.goals, 'Goals')}
+      ${teamTile(team.goals + team.misses, 'Schoten')}
       ${teamTile(formatPct(team.goals, team.misses), 'Schotpercentage')}
       ${team.locShots > 0 ? teamTile(formatXg(team.xg), 'xG') : ''}
       ${team.locShots > 0 ? teamTile(`<span class="${teamDiff >= 0 ? 'pos' : 'neg'}">${fmtSigned(teamDiff)}</span>`, teamDiff >= 0 ? 'Over xG' : 'Onder xG') : ''}
@@ -628,9 +629,10 @@ function renderPlayerDashboard() {
         </div>
         <div class="pstat-grid">
           <div><span class="pstat-num">${a.goals}</span><span class="pstat-lbl">Goals</span></div>
-          <div><span class="pstat-num">${perGame(a.goals, a.games)}</span><span class="pstat-lbl">Goals/wed</span></div>
-          <div><span class="pstat-num">${perGame(attempts, a.games)}</span><span class="pstat-lbl">Kansen/wed</span></div>
+          <div><span class="pstat-num">${attempts}</span><span class="pstat-lbl">Schoten</span></div>
           <div><span class="pstat-num">${a.locShots > 0 ? formatXg(a.xg) : '–'}</span><span class="pstat-lbl">xG</span></div>
+          <div><span class="pstat-num">${perGame(a.goals, a.games)}</span><span class="pstat-lbl">Goals/wed</span></div>
+          <div><span class="pstat-num">${perGame(attempts, a.games)}</span><span class="pstat-lbl">Schoten/wed</span></div>
         </div>
         <div class="pstat-badges">${xgBadge(a)}${selected.length > 0 && ids.length > 1 ? vsTeamBadge(a, team) : ''}</div>
       </div>`;
@@ -663,8 +665,9 @@ function renderPlayerDetail(playerId) {
     <div class="tiles tiles-auto">
       <div class="tile tile-donut">${chartDonut(pct, 84)}<span class="tile-lbl">Schotpercentage</span>${vsTeamBadge(a, team)}</div>
       ${tile(a.goals, 'Goals')}
+      ${tile(attempts, 'Schoten')}
       ${tile(perGame(a.goals, a.games), 'Goals/wedstrijd')}
-      ${tile(perGame(attempts, a.games), 'Kansen/wedstrijd')}
+      ${tile(perGame(attempts, a.games), 'Schoten/wedstrijd')}
       ${tile(a.locShots > 0 ? formatXg(a.xg) : '–', 'xG')}
       ${tile(a.locShots > 0 ? `<span class="${diff >= 0 ? 'pos' : 'neg'}">${fmtSigned(diff)}</span>` : '–', 'Goals − xG')}
     </div>`;
@@ -673,9 +676,9 @@ function renderPlayerDetail(playerId) {
 
   const barsCard = `
     <div class="card">
-      <h2>Goals per wedstrijd</h2>
-      ${chartBarsXg(matchesAsc.map((r) => ({ label: shortDate(r.match.date), value: r.goals, marker: r.locShots > 0 ? r.xg : null })))}
-      <div class="legend"><span class="lg-bar"></span> Goals ${a.locShots > 0 ? '<span class="lg-dot"></span> xG (verwacht)' : ''}</div>
+      <h2>Goals en schoten per wedstrijd</h2>
+      ${chartBarsXg(matchesAsc.map((r) => ({ label: shortDate(r.match.date), value: r.goals, shots: r.goals + r.misses, marker: r.locShots > 0 ? r.xg : null })))}
+      <div class="legend"><span class="lg-bar"></span> Goals <span class="lg-bar lg-bar-shots"></span> Schoten ${a.locShots > 0 ? '<span class="lg-dot"></span> xG (verwacht)' : ''}</div>
     </div>`;
 
   const lineCard = `
@@ -744,7 +747,7 @@ function renderPlayerDetail(playerId) {
       <h2>Per wedstrijd</h2>
       <div class="table-scroll">
         <table class="stats">
-          <thead><tr><th>Datum</th><th>Tegenstander</th><th>Goals</th><th>Kansen</th><th>%</th><th>xG</th><th>+/− xG</th></tr></thead>
+          <thead><tr><th>Datum</th><th>Tegenstander</th><th>Goals</th><th>Schoten</th><th>%</th><th>xG</th><th>+/− xG</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>

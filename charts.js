@@ -16,23 +16,26 @@ function chartDonut(pct, size) {
 }
 
 
-// items: [{ label, value, marker (xG of null) }]
+// items: [{ label, value (goals), shots (schoten), marker (xG of null) }]
 function chartBarsXg(items) {
   const W = 600;
   const H = 230;
   const L = 34;
   const B = 34;
-  const T = 18;
+  const T = 22;
   const plotW = W - L - 8;
   const plotH = H - B - T;
-  const maxVal = Math.max(1, ...items.map((i) => Math.max(i.value, i.marker || 0)));
+  const maxVal = Math.max(1, ...items.map((i) => Math.max(i.value, i.shots || 0, i.marker || 0)));
   const top = Math.ceil(maxVal);
   const y = (v) => T + plotH - (v / top) * plotH;
   const slot = plotW / items.length;
-  const bw = Math.min(46, slot * 0.55);
+  const bw = Math.min(30, slot * 0.34);
+  const gap = 3;
+  const base = T + plotH;
 
   let grid = '';
-  for (let g = 0; g <= top; g++) {
+  const gridStep = top > 10 ? Math.ceil(top / 5) : 1;
+  for (let g = 0; g <= top; g += gridStep) {
     const gy = y(g).toFixed(1);
     grid += `<line x1="${L}" y1="${gy}" x2="${W - 8}" y2="${gy}" class="ch-grid"/><text x="${L - 6}" y="${(y(g) + 4).toFixed(1)}" text-anchor="end" class="ch-axis">${g}</text>`;
   }
@@ -40,19 +43,23 @@ function chartBarsXg(items) {
   const step = items.length > 8 ? 2 : 1;
   const bars = items.map((it, i) => {
     const cx = L + slot * i + slot / 2;
-    const by = y(it.value);
-    const bh = Math.max(2, T + plotH - by);
+    const goalsX = cx - bw - gap / 2;
+    const shotsX = cx + gap / 2;
+    const gy = y(it.value);
+    const sy = y(it.shots || 0);
     const marker = it.marker != null
-      ? `<circle cx="${cx.toFixed(1)}" cy="${y(it.marker).toFixed(1)}" r="7" class="ch-marker"/>`
+      ? `<circle cx="${(goalsX + bw / 2).toFixed(1)}" cy="${y(it.marker).toFixed(1)}" r="7" class="ch-marker"/>`
       : '';
     const label = i % step === 0 ? `<text x="${cx.toFixed(1)}" y="${H - 12}" text-anchor="middle" class="ch-axis">${it.label}</text>` : '';
     return `
-      <rect x="${(cx - bw / 2).toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" class="ch-bar"/>
-      <text x="${cx.toFixed(1)}" y="${(by - 5).toFixed(1)}" text-anchor="middle" class="ch-val">${it.value}</text>
+      <rect x="${goalsX.toFixed(1)}" y="${gy.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(2, base - gy).toFixed(1)}" rx="4" class="ch-bar"/>
+      <text x="${(goalsX + bw / 2).toFixed(1)}" y="${(gy - 5).toFixed(1)}" text-anchor="middle" class="ch-val">${it.value}</text>
+      <rect x="${shotsX.toFixed(1)}" y="${sy.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(2, base - sy).toFixed(1)}" rx="4" class="ch-bar-shots"/>
+      <text x="${(shotsX + bw / 2).toFixed(1)}" y="${(sy - 5).toFixed(1)}" text-anchor="middle" class="ch-val ch-val-shots">${it.shots || 0}</text>
       ${marker}${label}`;
   }).join('');
 
-  return `<svg class="ch-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Goals per wedstrijd">${grid}${bars}</svg>`;
+  return `<svg class="ch-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Goals en schoten per wedstrijd">${grid}${bars}</svg>`;
 }
 
 // points: [{ label, value (0-100) of null }], avg: gemiddelde % (of null)
